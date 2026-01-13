@@ -1,0 +1,625 @@
+openapi: 3.1.0
+info:
+  title: LabSync API
+  version: 0.1.0
+  description: REST API for sample tracking, lab analyses, action batches, and conflict resolution.
+servers:
+  - url: http://localhost:8000
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /auth/login:
+    post:
+      summary: Login or create a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+  /auth/me:
+    get:
+      summary: Resolve the current user from the token
+      parameters:
+        - $ref: "#/components/parameters/Authorization"
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+  /samples:
+    get:
+      summary: List samples
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of samples
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Sample"
+    post:
+      summary: Create a sample
+      parameters:
+        - $ref: "#/components/parameters/XUser"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Sample"
+      responses:
+        "201":
+          description: Created sample
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sample"
+  /samples/{sample_id}:
+    get:
+      summary: Get a sample
+      parameters:
+        - $ref: "#/components/parameters/SampleId"
+      responses:
+        "200":
+          description: Sample
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sample"
+    patch:
+      summary: Update a sample
+      parameters:
+        - $ref: "#/components/parameters/SampleId"
+        - $ref: "#/components/parameters/XUser"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SampleUpdate"
+      responses:
+        "200":
+          description: Updated sample
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sample"
+    delete:
+      summary: Delete a sample
+      parameters:
+        - $ref: "#/components/parameters/SampleId"
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResult"
+  /admin/samples:
+    delete:
+      summary: Purge samples by ID (admin only)
+      parameters:
+        - $ref: "#/components/parameters/XRole"
+        - $ref: "#/components/parameters/XRoles"
+        - $ref: "#/components/parameters/XUser"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SamplePurgeRequest"
+      responses:
+        "200":
+          description: Deleted count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResult"
+  /planned-analyses:
+    get:
+      summary: List planned analyses
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of planned analyses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlannedAnalysisOut"
+    post:
+      summary: Create a planned analysis
+      parameters:
+        - $ref: "#/components/parameters/XRole"
+        - $ref: "#/components/parameters/XRoles"
+        - $ref: "#/components/parameters/XUser"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlannedAnalysisCreate"
+      responses:
+        "201":
+          description: Created analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlannedAnalysisOut"
+  /planned-analyses/{analysis_id}:
+    patch:
+      summary: Update a planned analysis
+      parameters:
+        - $ref: "#/components/parameters/AnalysisId"
+        - $ref: "#/components/parameters/XUser"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlannedAnalysisUpdate"
+      responses:
+        "200":
+          description: Updated analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlannedAnalysisOut"
+  /filter-methods:
+    get:
+      summary: List filter methods
+      responses:
+        "200":
+          description: List of methods
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilterMethodsOut"
+    put:
+      summary: Update filter methods (admin only)
+      parameters:
+        - $ref: "#/components/parameters/XRole"
+        - $ref: "#/components/parameters/XRoles"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FilterMethodsUpdate"
+      responses:
+        "200":
+          description: Updated methods
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilterMethodsOut"
+  /action-batches:
+    get:
+      summary: List action batches
+      responses:
+        "200":
+          description: List of action batches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActionBatchOut"
+    post:
+      summary: Create an action batch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActionBatchCreate"
+      responses:
+        "201":
+          description: Created action batch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionBatchOut"
+  /conflicts:
+    get:
+      summary: List conflicts
+      responses:
+        "200":
+          description: List of conflicts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConflictOut"
+    post:
+      summary: Create a conflict
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConflictCreate"
+      responses:
+        "201":
+          description: Created conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictOut"
+  /conflicts/{conflict_id}:
+    patch:
+      summary: Resolve a conflict
+      parameters:
+        - $ref: "#/components/parameters/ConflictId"
+        - $ref: "#/components/parameters/Authorization"
+        - $ref: "#/components/parameters/XUser"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConflictUpdate"
+      responses:
+        "200":
+          description: Updated conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictOut"
+  /admin/purge-nondefault-analyses:
+    delete:
+      summary: Delete non-default analysis types (admin only)
+      parameters:
+        - $ref: "#/components/parameters/XRole"
+        - $ref: "#/components/parameters/XRoles"
+      responses:
+        "200":
+          description: Deleted count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResult"
+  /admin/users:
+    get:
+      summary: List users
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserOut"
+  /admin/users/{user_id}:
+    patch:
+      summary: Update user roles
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserOut"
+components:
+  parameters:
+    Authorization:
+      in: header
+      name: Authorization
+      required: false
+      schema:
+        type: string
+      description: Bearer token, e.g. "Bearer fake-1"
+    XUser:
+      in: header
+      name: X-User
+      required: false
+      schema:
+        type: string
+    XRole:
+      in: header
+      name: X-Role
+      required: false
+      schema:
+        type: string
+    XRoles:
+      in: header
+      name: X-Roles
+      required: false
+      schema:
+        type: string
+    SampleId:
+      in: path
+      name: sample_id
+      required: true
+      schema:
+        type: string
+    AnalysisId:
+      in: path
+      name: analysis_id
+      required: true
+      schema:
+        type: integer
+    ConflictId:
+      in: path
+      name: conflict_id
+      required: true
+      schema:
+        type: integer
+    UserId:
+      in: path
+      name: user_id
+      required: true
+      schema:
+        type: integer
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        full_name:
+          type: string
+          nullable: true
+    LoginResponse:
+      type: object
+      required: [token, role, roles, full_name]
+      properties:
+        token:
+          type: string
+        role:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        full_name:
+          type: string
+    Sample:
+      type: object
+      required: [sample_id, well_id, horizon, sampling_date, status]
+      properties:
+        sample_id:
+          type: string
+        well_id:
+          type: string
+        horizon:
+          type: string
+        sampling_date:
+          type: string
+        status:
+          type: string
+          enum: [new, progress, review, done]
+        storage_location:
+          type: string
+          nullable: true
+        assigned_to:
+          type: string
+          nullable: true
+    SampleUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [new, progress, review, done]
+        storage_location:
+          type: string
+          nullable: true
+        assigned_to:
+          type: string
+          nullable: true
+        well_id:
+          type: string
+        horizon:
+          type: string
+        sampling_date:
+          type: string
+    SamplePurgeRequest:
+      type: object
+      required: [sample_ids]
+      properties:
+        sample_ids:
+          type: array
+          items:
+            type: string
+    PlannedAnalysisCreate:
+      type: object
+      required: [sample_id, analysis_type]
+      properties:
+        sample_id:
+          type: string
+        analysis_type:
+          type: string
+        assigned_to:
+          oneOf:
+            - type: array
+              items:
+                type: string
+            - type: string
+            - type: "null"
+    PlannedAnalysisUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [planned, in_progress, review, completed, failed]
+        assigned_to:
+          oneOf:
+            - type: array
+              items:
+                type: string
+            - type: string
+            - type: "null"
+    PlannedAnalysisOut:
+      type: object
+      required: [id, sample_id, analysis_type, status]
+      properties:
+        id:
+          type: integer
+        sample_id:
+          type: string
+        analysis_type:
+          type: string
+        status:
+          type: string
+        assigned_to:
+          type: array
+          items:
+            type: string
+          nullable: true
+    FilterMethodsUpdate:
+      type: object
+      properties:
+        methods:
+          type: array
+          items:
+            type: string
+    FilterMethodsOut:
+      type: object
+      properties:
+        methods:
+          type: array
+          items:
+            type: string
+    ActionBatchCreate:
+      type: object
+      required: [title, date]
+      properties:
+        title:
+          type: string
+        date:
+          type: string
+        status:
+          type: string
+          enum: [new, review, done]
+    ActionBatchOut:
+      type: object
+      required: [id, title, date, status]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        date:
+          type: string
+        status:
+          type: string
+          enum: [new, review, done]
+    ConflictCreate:
+      type: object
+      required: [old_payload, new_payload]
+      properties:
+        old_payload:
+          type: string
+        new_payload:
+          type: string
+        status:
+          type: string
+          enum: [open, resolved]
+    ConflictUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [open, resolved]
+        resolution_note:
+          type: string
+          nullable: true
+    ConflictOut:
+      type: object
+      required: [id, old_payload, new_payload, status]
+      properties:
+        id:
+          type: integer
+        old_payload:
+          type: string
+        new_payload:
+          type: string
+        status:
+          type: string
+          enum: [open, resolved]
+        resolution_note:
+          type: string
+          nullable: true
+        updated_by:
+          type: string
+          nullable: true
+        updated_at:
+          type: string
+          nullable: true
+    UserOut:
+      type: object
+      required: [id, username, full_name, role, roles]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        full_name:
+          type: string
+        role:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+    UserUpdate:
+      type: object
+      properties:
+        role:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+    DeleteResult:
+      type: object
+      properties:
+        deleted:
+          type: integer
