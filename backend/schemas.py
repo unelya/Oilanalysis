@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 
 
 class Sample(BaseModel):
-    sample_id: str = Field(min_length=2, max_length=64)
+    sample_id: str = Field(min_length=1, max_length=64)
     well_id: str = Field(min_length=1, max_length=32)
     horizon: str = Field(min_length=1, max_length=32)
     sampling_date: str = Field(min_length=4, max_length=32)
@@ -11,7 +11,7 @@ class Sample(BaseModel):
 
 
 class PlannedAnalysisCreate(BaseModel):
-    sample_id: str = Field(min_length=2, max_length=64)
+    sample_id: str = Field(min_length=1, max_length=64)
     analysis_type: str = Field(min_length=2, max_length=64)
     assigned_to: list[str] | str | None = Field(default=None)
 

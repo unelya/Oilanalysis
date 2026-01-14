@@ -1577,10 +1577,15 @@ export function KanbanBoard({
     setTimeout(() => setSelectedCard(null), 300);
   };
 
-  const applySampleStatusChange = (cardId: string, columnId: KanbanCard['status'], options?: { skipUndo?: boolean }) => {
+  const applySampleStatusChange = (
+    cardId: string,
+    columnId: KanbanCard['status'],
+    options?: { skipUndo?: boolean; sampleIdOverride?: string },
+  ) => {
     const prevCard =
       cards.find((c) => c.id === cardId || c.sampleId === cardId) ??
       columns.flatMap((c) => c.cards).find((c) => c.id === cardId || c.sampleId === cardId);
+    const apiSampleId = options?.sampleIdOverride ?? prevCard?.sampleId ?? cardId;
     if (prevCard && !options?.skipUndo) {
       setUndoStack((prev) => [
         ...prev.slice(-19),
@@ -1594,7 +1599,7 @@ export function KanbanBoard({
     }
     setCards((prev) =>
       prev.map((card) =>
-        card.id === cardId
+        card.id === cardId || card.sampleId === apiSampleId
           ? {
               ...card,
               status: columnId,
@@ -1603,7 +1608,7 @@ export function KanbanBoard({
           : card,
       ),
     );
-    updateSampleStatus(cardId, columnId)
+    updateSampleStatus(apiSampleId, columnId)
       .then((updated) => {
         if (role === 'warehouse_worker' && columnId === 'review') {
           ensureAnalyses(updated.sampleId, plannedAnalyses, setPlannedAnalyses, analysisTypes);
@@ -1777,7 +1782,13 @@ export function KanbanBoard({
       }
     }
 
-    const analysis = plannedAnalyses.find((a) => a.id.toString() === cardId);
+    const sampleTarget =
+      cards.find((c) => c.id === cardId || c.sampleId === cardId) ??
+      columns.flatMap((c) => c.cards).find((c) => c.id === cardId || c.sampleId === cardId);
+    const analysis =
+      role === 'warehouse_worker' || sampleTarget?.analysisType === 'Sample'
+        ? undefined
+        : plannedAnalyses.find((a) => a.id.toString() === cardId);
     if (analysis) {
       setPlannedAnalyses((prev) =>
         prev.map((pa) => (pa.id === analysis.id ? { ...pa, status: toAnalysisStatus(columnId) } : pa)),
@@ -1880,7 +1891,11 @@ export function KanbanBoard({
       return;
     }
 
-    applySampleStatusChange(cardId, columnId, { skipUndo: role === 'warehouse_worker' });
+    const warehouseTarget = role === 'warehouse_worker' ? sampleTarget : undefined;
+    applySampleStatusChange(cardId, columnId, {
+      skipUndo: role === 'warehouse_worker',
+      sampleIdOverride: warehouseTarget?.sampleId,
+    });
   };
 
   const handleSave = async () => {
@@ -2776,7 +2791,7 @@ export function KanbanBoard({
     }
     try {
       await updateSampleFields(sampleId, targetStatus ? { ...nextUpdates, status: targetStatus } : nextUpdates);
-      if (role === 'warehouse_worker' && (targetStatus === 'review' || nextUpdates.status === 'review')) {
+      if (targetStatus === 'review' || nextUpdates.status === 'review') {
         ensureAnalyses(sampleId, plannedAnalyses, setPlannedAnalyses, analysisTypes);
       }
     } catch (err) {
