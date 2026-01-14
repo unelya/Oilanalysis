@@ -1196,6 +1196,24 @@ export function KanbanBoard({
       prevAdminIssuesRef.current = currentIssues;
       prevAdminNeedsRef.current = currentNeeds;
       adminNotifsLoadedRef.current = true;
+      if (currentIssues.size > 0) {
+        setAdminIssuesRead((prev) => {
+          const next = { ...prev };
+          currentIssues.forEach((id) => {
+            if (next[id]) delete next[id];
+          });
+          return next;
+        });
+      }
+      if (currentNeeds.size > 0) {
+        setAdminNeedsRead((prev) => {
+          const next = { ...prev };
+          currentNeeds.forEach((id) => {
+            if (next[id]) delete next[id];
+          });
+          return next;
+        });
+      }
       return;
     }
     const newlyIssues = [...currentIssues].filter((id) => !prevAdminIssuesRef.current.has(id));
@@ -1916,22 +1934,36 @@ export function KanbanBoard({
     });
   };
 
-  const handleSave = async () => {
-    setLoading(true);
+  const refreshBoard = async (showLoading: boolean) => {
+    if (showLoading) setLoading(true);
     try {
       const [remoteSamples, remoteAnalyses] = await Promise.all([fetchSamples(), fetchPlannedAnalyses()]);
       setCards(remoteSamples);
       setPlannedAnalyses(remoteAnalyses.map(mapApiAnalysis));
     } catch (err) {
-      toast({
-        title: "Failed to refresh",
-        description: err instanceof Error ? err.message : "Backend unreachable",
-        variant: "destructive",
-      });
+      if (showLoading) {
+        toast({
+          title: "Failed to refresh",
+          description: err instanceof Error ? err.message : "Backend unreachable",
+          variant: "destructive",
+        });
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
+
+  const handleSave = async () => {
+    await refreshBoard(true);
+  };
+
+  useEffect(() => {
+    if (role !== 'admin') return;
+    const interval = setInterval(() => {
+      refreshBoard(false);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [role]);
 
   const applySampleUndo = async (sampleId: string, snapshot?: Partial<KanbanCard>) => {
     if (!snapshot) return;
