@@ -927,6 +927,7 @@ export function KanbanBoard({
           return;
         }
         if (sample.status === 'done') {
+          const analysisStatus = analysisStatusBySampleId.get(sample.sampleId) ?? sample.analysisStatus;
           adminCards.push({
             ...sample,
             returnNote: adminReturnNotes[sample.sampleId]?.slice(-1)[0],
@@ -936,12 +937,29 @@ export function KanbanBoard({
             analysisType: 'Sample',
             status: 'done',
             statusLabel: getAdminStatusLabel(sample, 'done'),
-            analysisStatus: analysisStatusBySampleId.get(sample.sampleId) ?? sample.analysisStatus,
+            analysisStatus,
             adminStored: false,
             methods: [],
             comments: commentsByCard[sample.sampleId] ?? [],
             allMethodsDone: false,
           });
+          if (analysisStatus === 'review') {
+            labMap.set(sample.sampleId, {
+              ...sample,
+              returnNote: adminReturnNotes[sample.sampleId]?.slice(-1)[0],
+              returnNotes: adminReturnNotes[sample.sampleId],
+              issueReason: adminIssueReason,
+              issueHistory,
+              analysisType: 'Sample',
+              status: 'new',
+              statusLabel: columnConfigByRole.lab_operator.find((c) => c.id === 'new')?.title ?? 'Planned',
+              analysisStatus,
+              adminStored: false,
+              methods: [],
+              comments: commentsByCard[sample.sampleId] ?? [],
+              allMethodsDone: false,
+            });
+          }
           return;
         }
         const hasOverride = Boolean(labStatusOverrides[sample.sampleId]) || Boolean(labReturnHighlights[sample.sampleId]);
