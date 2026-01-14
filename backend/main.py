@@ -479,7 +479,9 @@ async def list_users(db: Session = Depends(get_db)):
   ]
 
 @app.post("/admin/users", response_model=UserCreateOut, status_code=201)
-async def create_user(payload: UserCreate, db: Session = Depends(get_db)):
+async def create_user(payload: UserCreate, request: Request, db: Session = Depends(get_db)):
+  if not is_admin_from_headers(request):
+    raise HTTPException(status_code=403, detail="Admin only")
   username = payload.username.strip()
   if not username:
     raise HTTPException(status_code=400, detail="Username required")
