@@ -58,13 +58,13 @@ The frontend uses a centralized API layer in `frontend/src/lib/api.ts` that alig
 
 ### 1) Start the database
 ```
-cd final-project
+cd /workspaces/oilanalysis
 docker-compose up -d
 ```
 
 ### 2) Start the backend
 ```
-cd final-project/backend
+cd /workspaces/oilanalysis/backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -74,7 +74,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ### 3) Start the frontend
 ```
-cd final-project/frontend
+cd /workspaces/oilanalysis/frontend
 npm install
 npm run dev
 ```
@@ -84,14 +84,14 @@ The UI runs on `http://localhost:8080` and proxies API calls to `http://localhos
 ## Tests
 Backend tests (unit + integration):
 ```
-cd final-project
+cd /workspaces/oilanalysis
 pip install -r backend/requirements.txt -r backend/requirements-dev.txt
 pytest -q backend/tests
 ```
 
 Frontend tests:
 ```
-cd final-project/frontend
+cd /workspaces/oilanalysis/frontend
 npm install
 npm test
 ```
@@ -100,59 +100,90 @@ npm test
 GitHub Actions runs backend and frontend tests on every push and pull request:
 - Workflow: `.github/workflows/ci.yml`
 
-## Deployment (DigitalOcean)
-This is a simple, manual deployment path using a Droplet and Docker for the database.
+## Deployment (DigitalOcean, Option A - no Docker)
+This setup runs everything on a single Ubuntu 22.04 droplet. Postgres, FastAPI, and Nginx run directly on the server. The frontend is built locally and uploaded as static files.
 
 ### 1) Create a Droplet
 - Ubuntu 22.04 or newer
-- Open ports 80 and 8000 in the firewall
+- Open ports 80 (HTTP) in the firewall
 
-### 2) Install dependencies
+### 2) Install server dependencies (on the droplet)
 ```
 sudo apt update
-sudo apt install -y docker.io docker-compose nginx
+sudo apt install -y python3 python3-venv python3-pip nginx postgresql postgresql-contrib
 ```
 
-### 3) Deploy the project
+### 3) Create Postgres DB and user (on the droplet)
 ```
-git clone <your-repo-url>
-cd final-project
+sudo -u postgres psql
 ```
-
-### 4) Start Postgres
+Inside psql:
 ```
-docker-compose up -d
-```
-
-### 5) Run the backend
-```
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-export DATABASE_URL=postgresql+psycopg2://app:app@localhost:5432/labsync
-uvicorn main:app --host 0.0.0.0 --port 8000
+CREATE USER labsync WITH PASSWORD 'CHANGE_THIS_PASSWORD';
+CREATE DATABASE labsync OWNER labsync;
+\q
 ```
 
-### 6) Build and serve the frontend
+### 4) Create app folders (on the droplet)
 ```
-cd ../frontend
-npm install
+sudo mkdir -p /opt/labsync /var/www/labsync
+```
+
+### 5) Build frontend locally (Codespaces)
+```
+cd /workspaces/oilanalysis/frontend
+npm ci
 npm run build
 ```
 
-Copy the build output to Nginx:
+### 6) Upload files to the droplet (Codespaces)
 ```
-sudo rm -rf /var/www/labsync
-sudo mkdir -p /var/www/labsync
-sudo cp -r dist/* /var/www/labsync/
+rsync -avz /workspaces/oilanalysis/frontend/dist/ root@YOUR_DROPLET_IP:/var/www/labsync/
+rsync -avz /workspaces/oilanalysis/backend/ root@YOUR_DROPLET_IP:/opt/labsync/backend/
+rsync -avz /workspaces/oilanalysis/alembic root@YOUR_DROPLET_IP:/opt/labsync/
+rsync -avz /workspaces/oilanalysis/alembic.ini root@YOUR_DROPLET_IP:/opt/labsync/
 ```
 
-Create an Nginx config at `/etc/nginx/sites-available/labsync`:
+### 7) Backend venv + deps (on the droplet)
+```
+python3 -m venv /opt/labsync/venv
+/opt/labsync/venv/bin/pip install -r /opt/labsync/backend/requirements.txt
+```
+
+### 8) Backend env file (on the droplet)
+```
+cat <<'EOF' > /opt/labsync/.env
+DATABASE_URL=postgresql+psycopg2://labsync:CHANGE_THIS_PASSWORD@localhost:5432/labsync
+EOF
+```
+
+### 9) Systemd service (on the droplet)
+```
+cat <<'EOF' > /etc/systemd/system/labsync.service
+[Unit]
+Description=LabSync FastAPI
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/labsync/backend
+EnvironmentFile=/opt/labsync/.env
+ExecStart=/opt/labsync/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now labsync
+```
+
+### 10) Nginx config (on the droplet)
 ```
 server {
   listen 80;
-  server_name YOUR_DROPLET_IP_OR_DOMAIN;
+  server_name _;
 
   root /var/www/labsync;
   index index.html;
@@ -172,11 +203,18 @@ server {
 Enable the site and restart Nginx:
 ```
 sudo ln -s /etc/nginx/sites-available/labsync /etc/nginx/sites-enabled/labsync
+sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
-sudo systemctl restart nginx
+sudo systemctl reload nginx
 ```
 
 Your app should be reachable at `http://YOUR_DROPLET_IP`.
+
+### 11) Fast deploy script (Codespaces)
+```
+/workspaces/oilanalysis/deploy.sh
+```
+This script builds the frontend, uploads frontend + backend to the droplet, and restarts the backend service.
 
 ## AI-assisted development
 This project used AI assistants to accelerate scaffolding and refactoring, while keeping changes reviewable and testable.
