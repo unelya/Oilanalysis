@@ -82,11 +82,9 @@ const isUserAssigned = (assignees?: string[] | string | null, userName?: string)
 
 const isUserAssignedToMethod = (
   methodAssignees?: string[] | string | null,
-  cardAssignees?: string[] | string | null,
   userName?: string,
 ) => {
-  if (isUserAssigned(methodAssignees, userName)) return true;
-  return isUserAssigned(cardAssignees, userName);
+  return isUserAssigned(methodAssignees, userName);
 };
 
 export function KanbanBoard({
@@ -2623,7 +2621,7 @@ export function KanbanBoard({
           .flatMap((col) => col.cards)
           .find((card) => card.methods?.some((m) => String(m.id) === String(methodId)));
       const methodOnCard = cardForMethod?.methods?.find((m) => String(m.id) === String(methodId));
-      if (!isUserAssignedToMethod(methodRecord?.assignedTo, methodOnCard?.assignedTo ?? cardForMethod?.assignedTo, currentUser)) {
+      if (!isUserAssignedToMethod(methodRecord?.assignedTo, currentUser)) {
         toast({
           title: 'Not assigned',
           description: 'Only the assigned operator can check off this method.',
@@ -3173,7 +3171,7 @@ export function KanbanBoard({
               role === 'lab_operator' && user?.role !== 'admin'
                 ? (method, card) => {
                     const currentUser = (user?.fullName || user?.username || '').trim();
-                    return isUserAssignedToMethod(method.assignedTo, card.assignedTo, currentUser);
+                    return isUserAssignedToMethod(method.assignedTo, currentUser);
                   }
                 : undefined
             }
