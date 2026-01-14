@@ -214,17 +214,19 @@ const Samples = () => {
           .filter(Boolean)
           .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }))[0] ?? "";
 
-      const labStatus = aggregateStatus(methods, card.status);
+      const labOverride = labOverrides[card.sampleId];
+      const labStatus = labOverride ?? aggregateStatus(methods, "new");
       const analysisBadge = columnConfigByRole.lab_operator.find((col) => col.id === labStatus)?.title ?? "Planned";
       const hasSampleCard = sampleIdsFromCards.has(card.sampleId);
       const warehouseVisible = hasSampleCard && !deleted[card.sampleId] && !adminStored[card.sampleId];
-      const labVisible = warehouseVisible && (card.status === "review" || labOverrides[card.sampleId] !== undefined);
+      const labVisible = warehouseVisible && (card.status === "review" || labOverride !== undefined);
+      const adminStatus = card.status === "done" ? "done" : labStatus === "review" ? "review" : "new";
       const adminVisible =
         hasSampleCard &&
         (Boolean(deleted[card.sampleId]) ||
           Boolean(adminStored[card.sampleId]) ||
-          card.status === "review" ||
-          card.status === "done");
+          card.status === "done" ||
+          labStatus === "review");
 
       return {
         card,
@@ -242,6 +244,8 @@ const Samples = () => {
         arrivalDate: card.samplingDate && card.samplingDate !== "—" ? addDays(card.samplingDate, (seed % 5) + 1) : "—",
         methods,
         analysisBadge,
+        labStatus,
+        adminStatus,
       };
     });
   }, [cards, analyses]);
@@ -636,13 +640,11 @@ const Samples = () => {
                           : "N/A"}
                       </TableCell>
                       <TableCell>
-                        {row.labVisible
-                          ? sampleLabelForRole("lab_operator", aggregateStatus(row.methods, row.card.status))
-                          : "N/A"}
+                        {row.labVisible ? sampleLabelForRole("lab_operator", row.labStatus) : "N/A"}
                       </TableCell>
                       <TableCell>
                         {row.adminVisible
-                          ? sampleLabelForRole("admin", row.card.status, row.adminStored, row.deleted)
+                          ? sampleLabelForRole("admin", row.adminStatus, row.adminStored, row.deleted)
                           : "N/A"}
                       </TableCell>
                       <TableCell className="min-w-[520px]">

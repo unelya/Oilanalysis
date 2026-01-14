@@ -37,7 +37,7 @@ const ACTION_CONFLICT_READ_KEY = 'labsync-action-conflict-read';
 const ADMIN_ISSUES_READ_KEY = 'labsync-admin-issues-read';
 const ADMIN_NEEDS_READ_KEY = 'labsync-admin-needs-read';
 const CARD_SORT_KEY = 'labsync-card-sort';
-const SHOW_LAB_COMPLETED_MOCK = true;
+const SHOW_LAB_COMPLETED_MOCK = false;
 
 const roleCopy: Record<Role, string> = {
   warehouse_worker: 'Warehouse view: samples and storage',
