@@ -77,6 +77,17 @@ class UserOut(BaseModel):
     roles: list[str]
 
 
+class UserCreate(BaseModel):
+    username: str = Field(min_length=2, max_length=64)
+    full_name: str | None = Field(default=None, max_length=128)
+    role: str | None = Field(default=None, pattern="^(warehouse_worker|lab_operator|action_supervision|admin)$")
+    roles: list[str] | None = None
+
+
+class UserCreateOut(UserOut):
+    default_password: str
+
+
 class UserUpdate(BaseModel):
     role: str | None = Field(default=None, pattern="^(warehouse_worker|lab_operator|action_supervision|admin)$")
     roles: list[str] | None = None

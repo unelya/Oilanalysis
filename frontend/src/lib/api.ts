@@ -217,6 +217,21 @@ export async function fetchUsers() {
   return (await res.json()) as { id: number; username: string; full_name: string; role: string; roles: string[] }[];
 }
 
+export async function createUser(payload: { username: string; fullName?: string; role?: string; roles?: string[] }) {
+  const res = await fetch("/api/admin/users", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      username: payload.username,
+      full_name: payload.fullName,
+      role: payload.role,
+      roles: payload.roles,
+    }),
+  });
+  if (!res.ok) throw new Error(`Failed to create user (${res.status})`);
+  return (await res.json()) as { id: number; username: string; full_name: string; role: string; roles: string[]; default_password: string };
+}
+
 export async function updateUserRole(id: number, roles: string[]) {
   const res = await fetch(`/api/admin/users/${id}`, {
     method: "PATCH",
@@ -225,4 +240,13 @@ export async function updateUserRole(id: number, roles: string[]) {
   });
   if (!res.ok) throw new Error(`Failed to update user (${res.status})`);
   return (await res.json()) as { id: number; username: string; full_name: string; role: string; roles: string[] };
+}
+
+export async function deleteUser(id: number) {
+  const res = await fetch(`/api/admin/users/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to delete user (${res.status})`);
+  return (await res.json()) as { deleted: boolean };
 }

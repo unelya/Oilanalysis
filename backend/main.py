@@ -12,15 +12,17 @@ from sqlalchemy.orm import Session
 try:
     from .database import Base, engine, get_db
     from .models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel
-    from .schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserUpdate
+    from .schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserCreate, UserCreateOut, UserUpdate
     from .seed import seed_users
 except ImportError:  # pragma: no cover - fallback for script execution
   from database import Base, engine, get_db  # type: ignore
   from models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel  # type: ignore
-  from schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserUpdate  # type: ignore
+  from schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserCreate, UserCreateOut, UserUpdate  # type: ignore
   from seed import seed_users  # type: ignore
 
 app = FastAPI(title="LabSync backend", version="0.1.0")
+
+DEFAULT_PASSWORD = "labsync123"
 
 Base.metadata.create_all(bind=engine)
 seed_users()
@@ -476,6 +478,31 @@ async def list_users(db: Session = Depends(get_db)):
     for r in rows
   ]
 
+@app.post("/admin/users", response_model=UserCreateOut, status_code=201)
+async def create_user(payload: UserCreate, db: Session = Depends(get_db)):
+  username = payload.username.strip()
+  if not username:
+    raise HTTPException(status_code=400, detail="Username required")
+  existing = db.execute(select(UserModel).where(UserModel.username == username)).scalars().first()
+  if existing:
+    raise HTTPException(status_code=400, detail="Username already exists")
+  full_name = payload.full_name or username.replace(".", " ").title()
+  roles = payload.roles or ([payload.role] if payload.role else ["lab_operator"])
+  roles = [r for r in roles if r]
+  primary = roles[0] if roles else "lab_operator"
+  row = UserModel(username=username, full_name=full_name, role=primary, roles=serialize_roles(roles))
+  db.add(row)
+  db.commit()
+  db.refresh(row)
+  return UserCreateOut(
+    id=row.id,
+    username=row.username,
+    full_name=row.full_name,
+    role=row.role,
+    roles=parse_roles(row.roles) or [row.role],
+    default_password=DEFAULT_PASSWORD,
+  )
+
 
 @app.patch("/admin/users/{user_id}", response_model=UserOut)
 async def update_user_role(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
@@ -490,3 +517,13 @@ async def update_user_role(user_id: int, payload: UserUpdate, db: Session = Depe
   db.commit()
   db.refresh(row)
   return UserOut(id=row.id, username=row.username, full_name=row.full_name, role=row.role, roles=parse_roles(row.roles) or [row.role])
+
+
+@app.delete("/admin/users/{user_id}")
+async def delete_user(user_id: int, db: Session = Depends(get_db)):
+  row = db.get(UserModel, user_id)
+  if not row:
+    raise HTTPException(status_code=404, detail="User not found")
+  db.delete(row)
+  db.commit()
+  return {"deleted": True}
