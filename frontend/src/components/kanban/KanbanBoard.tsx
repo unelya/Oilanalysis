@@ -1193,16 +1193,32 @@ export function KanbanBoard({
   }, [columns, role, labPlannedRead]);
 
   useEffect(() => {
-    if (role !== 'admin') {
-      prevAdminIssuesRef.current = new Set();
-      prevAdminNeedsRef.current = new Set();
-      adminNotifsLoadedRef.current = false;
-      return;
-    }
-    const issuesCards = columns.find((col) => col.title === 'Issues')?.cards ?? [];
-    const needsCards = columns.find((col) => col.title === 'Needs attention')?.cards ?? [];
-    const currentIssues = new Set(issuesCards.map((card) => card.sampleId));
-    const currentNeeds = new Set(needsCards.map((card) => card.sampleId));
+    if (role !== 'admin') return;
+    const currentIssues = new Set<string>();
+    const currentNeeds = new Set<string>();
+    cards.forEach((card) => {
+      if (deletedByCard[card.sampleId]) return;
+      if (adminStoredByCard[card.sampleId]) return;
+      if (card.status === 'done') currentIssues.add(card.sampleId);
+    });
+    plannedAnalyses.forEach((pa) => {
+      if (deletedByCard[pa.sampleId]) return;
+      if (adminStoredByCard[pa.sampleId]) return;
+      if (pa.status === 'review' || pa.status === 'failed') {
+        currentNeeds.add(pa.sampleId);
+      }
+    });
+    Object.entries(labStatusOverrides).forEach(([sampleId, status]) => {
+      if (status !== 'review') return;
+      if (deletedByCard[sampleId]) return;
+      if (adminStoredByCard[sampleId]) return;
+      currentNeeds.add(sampleId);
+    });
+    Object.keys(labNeedsAttentionReasons).forEach((sampleId) => {
+      if (deletedByCard[sampleId]) return;
+      if (adminStoredByCard[sampleId]) return;
+      currentNeeds.add(sampleId);
+    });
     if (!adminNotifsLoadedRef.current) {
       prevAdminIssuesRef.current = currentIssues;
       prevAdminNeedsRef.current = currentNeeds;
@@ -1231,7 +1247,7 @@ export function KanbanBoard({
     }
     prevAdminIssuesRef.current = currentIssues;
     prevAdminNeedsRef.current = currentNeeds;
-  }, [columns, role]);
+  }, [cards, plannedAnalyses, role, adminStoredByCard, deletedByCard, labStatusOverrides, labNeedsAttentionReasons]);
 
   useEffect(() => {
     if (!onNotificationsChange) return;
@@ -1280,22 +1296,43 @@ export function KanbanBoard({
       return;
     }
     if (role === 'admin') {
-      const issuesCards = columns.find((col) => col.title === 'Issues')?.cards ?? [];
-      const needsCards = columns.find((col) => col.title === 'Needs attention')?.cards ?? [];
-      const issueNotes = issuesCards
-        .filter((card) => !adminIssuesRead[card.sampleId])
-        .map((card) => ({
-          id: `admin-issues:${card.sampleId}`,
-          title: 'Issue reported',
-          description: `${card.sampleId} is in Issues.`,
-        }));
-      const needsNotes = needsCards
-        .filter((card) => !adminNeedsRead[card.sampleId])
-        .map((card) => ({
-          id: `admin-needs:${card.sampleId}`,
-          title: 'Needs attention',
-          description: `${card.sampleId} is in Needs attention.`,
-        }));
+      const issuesFromData = new Set<string>();
+      cards.forEach((card) => {
+        if (deletedByCard[card.sampleId]) return;
+        if (adminStoredByCard[card.sampleId]) return;
+        if (card.status === 'done') issuesFromData.add(card.sampleId);
+      });
+      const needsFromData = new Set<string>();
+      plannedAnalyses.forEach((pa) => {
+        if (deletedByCard[pa.sampleId]) return;
+        if (adminStoredByCard[pa.sampleId]) return;
+        if (pa.status === 'review' || pa.status === 'failed') needsFromData.add(pa.sampleId);
+      });
+      Object.entries(labStatusOverrides).forEach(([sampleId, status]) => {
+        if (status !== 'review') return;
+        if (deletedByCard[sampleId]) return;
+        if (adminStoredByCard[sampleId]) return;
+        needsFromData.add(sampleId);
+      });
+      Object.keys(labNeedsAttentionReasons).forEach((sampleId) => {
+        if (deletedByCard[sampleId]) return;
+        if (adminStoredByCard[sampleId]) return;
+        needsFromData.add(sampleId);
+      });
+      const issueNotes = [...issuesFromData]
+        .filter((sampleId) => !adminIssuesRead[sampleId])
+        .map((sampleId) => ({
+        id: `admin-issues:${sampleId}`,
+        title: 'Issue reported',
+        description: `${sampleId} is in Issues.`,
+      }));
+      const needsNotes = [...needsFromData]
+        .filter((sampleId) => !adminNeedsRead[sampleId])
+        .map((sampleId) => ({
+        id: `admin-needs:${sampleId}`,
+        title: 'Needs attention',
+        description: `${sampleId} is in Needs attention.`,
+      }));
       onNotificationsChange([...issueNotes, ...needsNotes]);
       return;
     }
@@ -1473,50 +1510,44 @@ export function KanbanBoard({
         });
       }
     } else if (role === 'admin') {
-      const issuesCards = columns.find((col) => col.title === 'Issues')?.cards ?? [];
-      const issuesFromColumns = new Set(issuesCards.map((card) => card.sampleId));
-      if (issuesFromColumns.size === 0) {
-        cards.forEach((card) => {
-          if (card.status !== 'done') return;
-          if (adminStoredByCard[card.sampleId]) return;
-          if (deletedByCard[card.sampleId]) return;
-          issuesFromColumns.add(card.sampleId);
-        });
-      }
-      if (issuesFromColumns.size > 0) {
+      const issuesFromData = new Set<string>();
+      cards.forEach((card) => {
+        if (card.status !== 'done') return;
+        if (adminStoredByCard[card.sampleId]) return;
+        if (deletedByCard[card.sampleId]) return;
+        issuesFromData.add(card.sampleId);
+      });
+      const needsFromData = new Set<string>();
+      plannedAnalyses.forEach((pa) => {
+        if (pa.status !== 'review' && pa.status !== 'failed') return;
+        if (adminStoredByCard[pa.sampleId]) return;
+        if (deletedByCard[pa.sampleId]) return;
+        needsFromData.add(pa.sampleId);
+      });
+      Object.entries(labStatusOverrides).forEach(([sampleId, status]) => {
+        if (status !== 'review') return;
+        if (adminStoredByCard[sampleId]) return;
+        if (deletedByCard[sampleId]) return;
+        needsFromData.add(sampleId);
+      });
+      Object.keys(labNeedsAttentionReasons).forEach((sampleId) => {
+        if (adminStoredByCard[sampleId]) return;
+        if (deletedByCard[sampleId]) return;
+        needsFromData.add(sampleId);
+      });
+      if (issuesFromData.size > 0) {
         setAdminIssuesRead((prev) => {
           const next = { ...prev };
-          issuesFromColumns.forEach((sampleId) => {
+          issuesFromData.forEach((sampleId) => {
             next[sampleId] = true;
           });
           return next;
         });
       }
-      const needsCards = columns.find((col) => col.title === 'Needs attention')?.cards ?? [];
-      const needsFromColumns = new Set(needsCards.map((card) => card.sampleId));
-      if (needsFromColumns.size === 0) {
-        plannedAnalyses.forEach((pa) => {
-          if (pa.status !== 'review' && pa.status !== 'failed') return;
-          if (adminStoredByCard[pa.sampleId]) return;
-          if (deletedByCard[pa.sampleId]) return;
-          needsFromColumns.add(pa.sampleId);
-        });
-        Object.entries(labStatusOverrides).forEach(([sampleId, status]) => {
-          if (status !== 'review') return;
-          if (adminStoredByCard[sampleId]) return;
-          if (deletedByCard[sampleId]) return;
-          needsFromColumns.add(sampleId);
-        });
-        Object.keys(labNeedsAttentionReasons).forEach((sampleId) => {
-          if (adminStoredByCard[sampleId]) return;
-          if (deletedByCard[sampleId]) return;
-          needsFromColumns.add(sampleId);
-        });
-      }
-      if (needsFromColumns.size > 0) {
+      if (needsFromData.size > 0) {
         setAdminNeedsRead((prev) => {
           const next = { ...prev };
-          needsFromColumns.forEach((sampleId) => {
+          needsFromData.forEach((sampleId) => {
             next[sampleId] = true;
           });
           return next;
