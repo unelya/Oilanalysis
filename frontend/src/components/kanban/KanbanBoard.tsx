@@ -1053,13 +1053,26 @@ export function KanbanBoard({
 
       let filteredAdminCards = adminCards;
       if (methodFilter.length > 0) {
-        filteredAdminCards = adminCards.filter((c) => c.methods?.some((m) => methodFilter.includes(m.name)));
+        if (incompleteOnly) {
+          filteredAdminCards = adminCards.filter((c) =>
+            c.methods?.some((m) => methodFilter.includes(m.name)) || !c.methods || c.methods.length === 0,
+          );
+        } else {
+          filteredAdminCards = adminCards.filter((c) => c.methods?.some((m) => methodFilter.includes(m.name)));
+        }
       }
       let cols = getColumnData(filterCards(filteredAdminCards), role);
       if (incompleteOnly) {
+        const hasFilteredIncomplete = (c: KanbanCard) =>
+          c.methods?.some((m) => methodFilter.includes(m.name) && m.status !== 'completed');
+        const hasNoMethods = (c: KanbanCard) => !c.methods || c.methods.length === 0;
         cols = cols.map((col) => ({
           ...col,
-          cards: col.cards.filter((c) => hasIncomplete(c)),
+          cards: col.cards.filter((c) =>
+            methodFilter.length > 0
+              ? hasFilteredIncomplete(c) || hasNoMethods(c)
+              : hasIncomplete(c) || hasNoMethods(c),
+          ),
         }));
       }
       return cols;
@@ -3104,7 +3117,7 @@ export function KanbanBoard({
               <span>Show only assigned to me</span>
             </label>
           )}
-          {role === 'lab_operator' && (
+          {(role === 'lab_operator' || role === 'admin') && (
             <label className="flex items-center gap-2 text-sm text-foreground">
               <Checkbox
                 checked={incompleteOnly}
