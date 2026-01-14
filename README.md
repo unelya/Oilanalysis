@@ -1,5 +1,7 @@
 # LabSync - Oil Sample Workflow Management
 
+Deployed app: http://161.35.194.36/
+
 LabSync is a role-based web application for managing oil samples, laboratory work, and technological actions in one traceable workflow. It helps teams track samples from collection through lab analysis and operational actions, with audit logging and conflict resolution.
 
 ## Problem statement
@@ -215,6 +217,9 @@ Your app should be reachable at `http://YOUR_DROPLET_IP`.
 /workspaces/oilanalysis/deploy.sh
 ```
 This script builds the frontend, uploads frontend + backend to the droplet, and restarts the backend service.
+
+## Dependency audit note
+`npm audit fix` resolves most issues, but remaining advisories require a breaking upgrade to Vite 7.x (not applied). The current setup accepts those moderate advisories to avoid breaking changes.
 
 ## AI-assisted development
 This project used AI assistants to accelerate scaffolding and refactoring, while keeping changes reviewable and testable.
