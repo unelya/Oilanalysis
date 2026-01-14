@@ -37,8 +37,20 @@ interface DetailPanelProps {
   currentUserName?: string;
 }
 
-export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPlanAnalysis, onAssignOperator, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [], comments = [], onAddComment, currentUserName }: DetailPanelProps) {
-  if (!card) return null;
+export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_operator', onPlanAnalysis, onAssignOperator, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [], comments = [], onAddComment, currentUserName }: DetailPanelProps) {
+  const card: KanbanCard = cardProp ?? {
+    id: '',
+    status: 'new',
+    statusLabel: '',
+    sampleId: '',
+    wellId: '',
+    horizon: '',
+    samplingDate: '',
+    storageLocation: '',
+    analysisType: '',
+    analysisStatus: 'planned',
+    sampleStatus: 'received',
+  };
   const panelRef = useRef<HTMLDivElement | null>(null);
   const normalizeAssignees = (value?: string[] | string | null) => {
     if (!value) return [];
@@ -189,6 +201,7 @@ export function DetailPanel({ card, isOpen, onClose, role = 'lab_operator', onPl
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
   
+  if (!cardProp) return null;
   return (
     <>
       {/* Backdrop */}

@@ -146,7 +146,6 @@ export function KanbanBoard({
     )[]
   >([]);
   const undoStackRef = useRef<(typeof undoStack)[number][]>([]);
-  const prevLabPlannedRef = useRef<Set<string>>(new Set());
   const [storagePrompt, setStoragePrompt] = useState<{ open: boolean; sampleId: string | null }>({ open: false, sampleId: null });
   const [storageValue, setStorageValue] = useState({ fridge: '', bin: '', place: '' });
   const [storageError, setStorageError] = useState('');
@@ -292,6 +291,7 @@ export function KanbanBoard({
       return {};
     }
   });
+  const [labPlannedUnread, setLabPlannedUnread] = useState<Record<string, boolean>>({});
   const [actionUploadedRead, setActionUploadedRead] = useState<Record<string, boolean>>(() => {
     if (typeof window === 'undefined') return {};
     try {
@@ -330,7 +330,6 @@ export function KanbanBoard({
   });
   const prevAdminReturnNotesRef = useRef<Record<string, string[]>>({});
   const adminReturnLoadedRef = useRef(false);
-  const labPlannedLoadedRef = useRef(false);
   const prevAdminIssuesRef = useRef<Set<string>>(new Set());
   const prevAdminNeedsRef = useRef<Set<string>>(new Set());
   const adminNotifsLoadedRef = useRef(false);
@@ -1164,33 +1163,16 @@ export function KanbanBoard({
   }, [columns, sortMode]);
 
   useEffect(() => {
-    if (role !== 'lab_operator') {
-      prevLabPlannedRef.current = new Set();
-      labPlannedLoadedRef.current = false;
-      return;
-    }
-    if (!labPlannedLoadedRef.current) {
-      prevLabPlannedRef.current = new Set((columns.find((col) => col.id === 'new')?.cards ?? []).map((card) => card.sampleId));
-      labPlannedLoadedRef.current = true;
-      return;
-    }
+    if (role !== 'lab_operator') return;
     const plannedCards = columns.find((col) => col.id === 'new')?.cards ?? [];
-    const currentPlanned = new Set(plannedCards.map((card) => card.sampleId));
-    const prevPlanned = prevLabPlannedRef.current;
-    const newlyAdded = [...currentPlanned].filter((id) => !prevPlanned.has(id));
-    if (newlyAdded.length > 0) {
-      setLabPlannedRead((prev) => {
-        const next = { ...prev };
-        newlyAdded.forEach((id) => {
-          if (next[id]) {
-            delete next[id];
-          }
-        });
-        return next;
-      });
-    }
-    prevLabPlannedRef.current = currentPlanned;
-  }, [columns, role]);
+    const nextUnread: Record<string, boolean> = {};
+    plannedCards.forEach((card) => {
+      if (!labPlannedRead[card.sampleId]) {
+        nextUnread[card.sampleId] = true;
+      }
+    });
+    setLabPlannedUnread(nextUnread);
+  }, [columns, role, labPlannedRead]);
 
   useEffect(() => {
     if (role !== 'admin') {
@@ -1318,7 +1300,7 @@ export function KanbanBoard({
       return;
     }
     const plannedNotes = plannedCards
-      .filter((card) => !labPlannedRead[card.sampleId])
+      .filter((card) => labPlannedUnread[card.sampleId] || !labPlannedRead[card.sampleId])
       .map((card) => ({
         id: `lab-planned:${card.sampleId}`,
         title: 'New planned analysis',
@@ -1349,6 +1331,7 @@ export function KanbanBoard({
     warehouseReturnRead,
     labPlannedRead,
     labReturnRead,
+    labPlannedUnread,
     labReturnHighlights,
     adminReturnNotes,
     actionUploadedRead,
@@ -1372,6 +1355,12 @@ export function KanbanBoard({
     }
     if (role === 'lab_operator') {
       if (kind === 'lab-planned') {
+        setLabPlannedUnread((prev) => {
+          if (!prev[sampleId]) return prev;
+          const next = { ...prev };
+          delete next[sampleId];
+          return next;
+        });
         setLabPlannedRead((prev) => ({ ...prev, [sampleId]: true }));
       }
       if (kind === 'lab-returned') {
@@ -1416,6 +1405,13 @@ export function KanbanBoard({
         });
       } else if (role === 'lab_operator') {
         if (role === 'lab_operator') {
+          setLabPlannedUnread((prev) => {
+            const next = { ...prev };
+            plannedCards.forEach((card) => {
+              delete next[card.sampleId];
+            });
+            return next;
+          });
           setLabPlannedRead((prev) => {
             const next = { ...prev };
             plannedCards.forEach((card) => {
@@ -1949,8 +1945,12 @@ export function KanbanBoard({
     if (showLoading) setLoading(true);
     try {
       const [remoteSamples, remoteAnalyses] = await Promise.all([fetchSamples(), fetchPlannedAnalyses()]);
+      const normalizedAnalyses = remoteAnalyses.map(mapApiAnalysis);
       setCards(remoteSamples);
-      setPlannedAnalyses(remoteAnalyses.map(mapApiAnalysis));
+      setPlannedAnalyses(normalizedAnalyses);
+      for (const sample of remoteSamples) {
+        await ensureAnalyses(sample.sampleId, normalizedAnalyses, setPlannedAnalyses, DEFAULT_ANALYSIS_TYPES);
+      }
     } catch (err) {
       if (showLoading) {
         toast({
@@ -1970,6 +1970,14 @@ export function KanbanBoard({
 
   useEffect(() => {
     if (role !== 'admin') return;
+    const interval = setInterval(() => {
+      refreshBoard(false);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [role]);
+
+  useEffect(() => {
+    if (role !== 'lab_operator') return;
     const interval = setInterval(() => {
       refreshBoard(false);
     }, 8000);
