@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,10 @@ if TEST_DB_PATH.exists():
     TEST_DB_PATH.unlink()
 
 os.environ["DATABASE_URL"] = f"sqlite+pysqlite:///{TEST_DB_PATH}"
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from backend.main import app  # noqa: E402
 from backend.database import Base, engine  # noqa: E402
