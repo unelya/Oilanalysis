@@ -1,25 +1,32 @@
-# LabSync - Oil Sample Workflow Management
+# LabSync – Oil Sample Workflow Management
 
 Deployed app: http://161.35.194.36/
 
-LabSync is a role-based web application for managing oil samples, laboratory work, and technological actions in one traceable workflow. It helps teams track samples from collection through lab analysis and operational actions, with audit logging and conflict resolution.
+LabSync is a role-based, Kanban-driven web application for managing oil samples, laboratory analyses, and follow-up actions in a single traceable workflow. It coordinates warehouse, laboratory, and supervisory work around shared sample cards, while preserving clear ownership, status separation, and full operational context.
 
 ## Problem statement
-Oil sample management is often fragmented across spreadsheets and emails, making it hard to track sample status, assignments, and approvals. LabSync provides a single system to register samples, plan and track analyses, manage action batches, and resolve data conflicts with a clear audit trail.
+Oil sample workflows typically span multiple teams and tools, leading to fragmented tracking, unclear responsibilities, and poor traceability. Sample intake, storage, analysis planning, execution, corrections, and approvals are often handled in spreadsheets and emails, making it difficult to understand the true state of a sample or reconstruct decisions after the fact. LabSync addresses this by unifying the entire lifecycle into one structured system with explicit states and exception handling.
 
 ## What the system does
-- Tracks samples (creation, status changes, storage location, assignees)
-- Plans lab analyses and assigns them to staff
-- Manages action batches for operational follow-up
-- Captures and resolves data conflicts
-- Logs audit events for traceability
-- Enforces role-based access for sensitive actions
+- Tracks oil samples from registration through storage, analysis, and resolution
+- Provides Kanban boards with role-specific columns and views
+- Separates sample status (warehouse lifecycle) from analysis status (laboratory lifecycle)
+- Represents laboratory work as a checklist of analysis methods on each sample card
+- Supports assignment of methods to operators and progress tracking
+- Handles exceptions explicitly (Issues, Needs Attention, Conflicts, Deleted) with required reasons
+- Maintains traceability via history, notifications, and undoable actions
 
 ## Roles
-- Warehouse worker: registers samples, updates storage info
-- Lab operator: manages and executes planned analyses
-- Action supervision: manages action batches
-- Admin: manages users, roles, and system-level settings
+- Warehouse: registers samples, manages arrival and storage, flags issues
+- Lab Operator: plans and executes analyses, updates method completion, flags attention needs
+- Action Supervision: reviews action batches and conflicts
+- Admin: manages users and roles, oversees exceptions, resolves or returns samples, and controls system behavior
+
+## Design principles
+- Kanban-first, card-driven UI inspired by Trello/Jira, adapted for scientific and industrial use
+- Clear separation of responsibilities without duplicating data
+- Explicit exception workflows instead of silent corrections
+- Auditability and reversibility as first-class features
 
 ## Architecture overview
 - Frontend: React + Vite UI that handles routing, role-based screens, and user actions
