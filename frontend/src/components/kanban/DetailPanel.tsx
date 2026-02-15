@@ -146,6 +146,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
   const [commentText, setCommentText] = useState('');
   const [commentAuthor, setCommentAuthor] = useState(currentUserName ?? '');
   const [storageParts, setStorageParts] = useState(() => parseStorageLocation(card.storageLocation || ''));
+  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
   const isAdmin = Boolean(onPlanAnalysis);
 
   useEffect(() => {
@@ -158,6 +159,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
     setAssignOperator('');
     setAssignError('');
     setPlanError('');
+    setExpandedNotes({});
   }, [card.sampleId]);
   useEffect(() => {
     setStorageParts(parseStorageLocation(card.storageLocation || ''));
@@ -202,6 +204,27 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
   }, [isOpen]);
   
   if (!cardProp) return null;
+  const renderNotePreview = (label: string, value: string | undefined, key: string, align: 'left' | 'right' = 'left') => {
+    const text = value?.trim() || '—';
+    const canExpand = Boolean(value && value.trim().length > 48);
+    const expanded = Boolean(expandedNotes[key]);
+    return (
+      <div className={cn('min-w-0', align === 'right' ? 'text-right' : 'text-left')}>
+        <div className={cn('text-sm text-muted-foreground', expanded ? 'whitespace-normal break-words' : 'truncate')}>
+          {label}: {text}
+        </div>
+        {canExpand && (
+          <button
+            type="button"
+            className="mt-0.5 text-xs text-primary hover:underline"
+            onClick={() => setExpandedNotes((prev) => ({ ...prev, [key]: !prev[key] }))}
+          >
+            {expanded ? 'Show less' : 'Show more'}
+          </button>
+        )}
+      </div>
+    );
+  };
   return (
     <>
       {/* Backdrop */}
@@ -268,9 +291,9 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                     const note = card.returnNotes?.[idx] ?? (idx === 0 ? card.returnNote : undefined);
                     if (!issue && !note) return null;
                     return (
-                      <div key={`${issue ?? 'issue'}-${note ?? 'note'}-${idx}`} className="flex items-center justify-between gap-3">
-                        <span className="truncate">Issue: {issue ?? '—'}</span>
-                        <span className="truncate text-right">Return note: {note ?? '—'}</span>
+                      <div key={`${issue ?? 'issue'}-${note ?? 'note'}-${idx}`} className="grid grid-cols-2 gap-3 items-start">
+                        {renderNotePreview('Issue', issue, `issue-${idx}`, 'left')}
+                        {renderNotePreview('Return note', note, `return-${idx}`, 'right')}
                       </div>
                     );
                   })}
