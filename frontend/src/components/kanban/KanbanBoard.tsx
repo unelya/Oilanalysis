@@ -1632,6 +1632,61 @@ export function KanbanBoard({
     };
   };
 
+  const getLabStateSnapshot = (sampleId: string) => ({
+    labStatusOverride: labStatusOverrides[sampleId],
+    labReturnHighlight: labReturnHighlights[sampleId],
+    labNeedsReason: labNeedsAttentionReasons[sampleId],
+    issueHistory: issueReasons[sampleId],
+  });
+
+  const areStringArraysEqual = (a?: string[], b?: string[]) => {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    if (a.length !== b.length) return false;
+    return a.every((val, idx) => val === b[idx]);
+  };
+
+  const isUndoNoop = (action: (typeof undoStack)[number]) => {
+    if (action.kind === 'labState') {
+      const current = getLabStateSnapshot(action.sampleId);
+      return (
+        current.labStatusOverride === action.prev.labStatusOverride &&
+        current.labReturnHighlight === action.prev.labReturnHighlight &&
+        current.labNeedsReason === action.prev.labNeedsReason &&
+        areStringArraysEqual(current.issueHistory, action.prev.issueHistory)
+      );
+    }
+    if (action.kind === 'sample') {
+      const current = getSampleSnapshot(action.sampleId);
+      if (!current) return true;
+      const prev = action.prev;
+      if (prev.status !== undefined && current.status !== prev.status) return false;
+      if (prev.statusLabel !== undefined && current.statusLabel !== prev.statusLabel) return false;
+      if (prev.storageLocation !== undefined && current.storageLocation !== prev.storageLocation) return false;
+      if (prev.samplingDate !== undefined && current.samplingDate !== prev.samplingDate) return false;
+      if (prev.wellId !== undefined && current.wellId !== prev.wellId) return false;
+      if (prev.horizon !== undefined && current.horizon !== prev.horizon) return false;
+      if (prev.assignedTo !== undefined && current.assignedTo !== prev.assignedTo) return false;
+      if (prev.deletedReason !== undefined && current.deletedReason !== prev.deletedReason) return false;
+      if (
+        action.prevWarehouseReturnHighlight !== undefined &&
+        Boolean(warehouseReturnHighlights[action.sampleId]) !== action.prevWarehouseReturnHighlight
+      ) {
+        return false;
+      }
+      return true;
+    }
+    return false;
+  };
+
+  const canUndo = useMemo(() => {
+    if (undoStack.length === 0) return false;
+    for (let i = undoStack.length - 1; i >= 0; i -= 1) {
+      if (!isUndoNoop(undoStack[i])) return true;
+    }
+    return false;
+  }, [undoStack, cards, labStatusOverrides, labReturnHighlights, labNeedsAttentionReasons, issueReasons, warehouseReturnHighlights]);
+
   const pushLabStateUndo = (sampleId: string) => {
     setUndoStack((prev) => [
       ...prev.slice(-19),
@@ -2110,9 +2165,17 @@ export function KanbanBoard({
 
   const undoLast = async () => {
     const stackSnapshot = undoStackRef.current;
-    const lastAction = stackSnapshot[stackSnapshot.length - 1];
-    if (!lastAction) return;
-    setUndoStack(stackSnapshot.slice(0, -1));
+    if (stackSnapshot.length === 0) return;
+    const nextStack = [...stackSnapshot];
+    let lastAction = nextStack.pop();
+    while (lastAction && isUndoNoop(lastAction)) {
+      lastAction = nextStack.pop();
+    }
+    if (!lastAction) {
+      setUndoStack(nextStack);
+      return;
+    }
+    setUndoStack(nextStack);
 
     if (lastAction.kind === 'sample') {
       try {
@@ -3192,7 +3255,7 @@ export function KanbanBoard({
               <span>Show only incomplete</span>
             </label>
           )}
-          <Button variant="outline" size="sm" className="gap-2" onClick={undoLast} disabled={undoStack.length === 0}>
+          <Button variant="outline" size="sm" className="gap-2" onClick={undoLast} disabled={!canUndo}>
             <Undo2 className="w-4 h-4" />
             Undo
           </Button>
