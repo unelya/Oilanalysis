@@ -144,7 +144,7 @@ const Admin = () => {
           </div>
           <Separator />
           <div className="mt-4 rounded-2xl border border-border/60 bg-card/70 p-4">
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-[repeat(4,minmax(0,1fr))_120px] gap-3">
               <div>
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">Username</label>
                 <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value)} placeholder="e.g. lab.tech" />
@@ -171,7 +171,7 @@ const Admin = () => {
                   ))}
                 </select>
               </div>
-              <div className="flex items-end">
+              <div className="flex items-end justify-end">
                 <Button onClick={handleCreate} disabled={creating || !newUsername.trim() || !newFullName.trim() || !newEmail.trim() || !newRole.trim()}>
                   {creating ? "Creating..." : "Create user"}
                 </Button>
@@ -182,16 +182,16 @@ const Admin = () => {
             </p>
           </div>
           <div className="mt-4 rounded-2xl border border-border/60 bg-card/70">
-            <div className="grid grid-cols-5 text-xs uppercase tracking-wide text-muted-foreground px-4 py-2 border-b border-border/60">
+            <div className="grid grid-cols-[repeat(4,minmax(0,1fr))_120px] gap-3 text-xs uppercase tracking-wide text-muted-foreground px-4 py-2 border-b border-border/60">
               <div>Username</div>
               <div>Full name</div>
               <div>Email</div>
               <div>Roles</div>
-              <div>Status</div>
+              <div className="text-right">Actions</div>
             </div>
             <div className="divide-y divide-border/60">
               {users.map((user) => (
-                <div key={user.id} className="grid grid-cols-5 items-start px-4 py-3 text-sm text-foreground gap-2">
+                <div key={user.id} className="grid grid-cols-[repeat(4,minmax(0,1fr))_120px] gap-3 items-start px-4 py-3 text-sm text-foreground">
                   <div className="font-mono text-primary">{user.username}</div>
                   <div>{user.full_name}</div>
                   <div className="text-muted-foreground">{user.email || "—"}</div>
@@ -244,8 +244,7 @@ const Admin = () => {
                       </Popover>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>{savingId === user.id ? "Saving..." : loading ? "Syncing..." : "Active"}</span>
+                  <div className="flex items-center justify-end">
                     <Button
                       variant="destructive"
                       size="sm"
