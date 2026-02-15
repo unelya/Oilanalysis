@@ -209,11 +209,15 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
             Reason: {card.deletedReason}
           </div>
         )}
-        {card.issueReason && (
+        {card.returnNote ? (
+          <div className="text-[11px] text-destructive leading-snug">
+            Return note: {card.returnNote}
+          </div>
+        ) : card.issueReason ? (
           <div className="text-[11px] text-destructive leading-snug">
             Issue: {card.issueReason}
           </div>
-        )}
+        ) : null}
         {card.methods && card.methods.length > 0 && (
           <div className="space-y-1">
             {sortMethods(card.methods).map((m) => (

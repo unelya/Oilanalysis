@@ -1057,8 +1057,8 @@ export function KanbanBoard({
         card.status = aggStatus;
         card.statusLabel = columnConfigByRole.lab_operator.find((c) => c.id === aggStatus)?.title ?? card.statusLabel;
         card.allMethodsDone = allDone;
-        if (adminReturnNotes[card.sampleId]) {
-          card.returnNote = adminReturnNotes[card.sampleId];
+        if (adminReturnNotes[card.sampleId]?.length) {
+          card.returnNote = adminReturnNotes[card.sampleId][adminReturnNotes[card.sampleId].length - 1];
         }
         const overrideStatus = labStatusOverrides[card.sampleId];
         if (overrideStatus) {
@@ -1176,6 +1176,7 @@ export function KanbanBoard({
     if (role === 'warehouse_worker') {
       const decorated = withComments(visibleCards).map((card) => {
         const issueHistory = issueReasons[card.sampleId] ?? [];
+        const returnNotes = adminReturnNotes[card.sampleId] ?? [];
         const analysisStatus = analysisStatusBySampleId.get(card.sampleId) ?? card.analysisStatus;
         const analysisLabel =
           analysisStatus === 'completed'
@@ -1188,6 +1189,8 @@ export function KanbanBoard({
         return {
           ...card,
           returnedToWarehouse: Boolean(warehouseReturnHighlights[card.sampleId] || card.returnedToWarehouse),
+          returnNote: returnNotes[returnNotes.length - 1] ?? card.returnNote,
+          returnNotes,
           issueReason: issueHistory[issueHistory.length - 1] ?? card.issueReason,
           issueHistory,
           analysisStatus,
