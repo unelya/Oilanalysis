@@ -1,4 +1,4 @@
-import { X, Calendar, User, MapPin, FlaskConical, ClipboardList, CircleDot } from 'lucide-react';
+import { X, Calendar, User, MapPin, FlaskConical, ClipboardList, CircleDot, Users } from 'lucide-react';
 import { KanbanCard, CommentThread, Role } from '@/types/kanban';
 import { StatusBadge } from './StatusBadge';
 import { cn } from '@/lib/utils';
@@ -12,7 +12,6 @@ import { Calendar as CalendarCmp } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Users } from 'lucide-react';
 
 interface DetailPanelProps {
   card: KanbanCard | null;
@@ -33,11 +32,13 @@ interface DetailPanelProps {
   availableMethods?: string[];
   operatorOptions?: { id: number; name: string }[];
   comments?: CommentThread[];
+  issueHistoryTimestamps?: string[];
+  returnNoteTimestamps?: string[];
   onAddComment?: (sampleId: string, author: string, text: string) => void;
   currentUserName?: string;
 }
 
-export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_operator', onPlanAnalysis, onAssignOperator, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [], comments = [], onAddComment, currentUserName }: DetailPanelProps) {
+export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_operator', onPlanAnalysis, onAssignOperator, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [], comments = [], issueHistoryTimestamps = [], returnNoteTimestamps = [], onAddComment, currentUserName }: DetailPanelProps) {
   const card: KanbanCard = cardProp ?? {
     id: '',
     status: 'new',
@@ -146,7 +147,6 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
   const [commentText, setCommentText] = useState('');
   const [commentAuthor, setCommentAuthor] = useState(currentUserName ?? '');
   const [storageParts, setStorageParts] = useState(() => parseStorageLocation(card.storageLocation || ''));
-  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
   const isAdmin = Boolean(onPlanAnalysis);
 
   useEffect(() => {
@@ -159,7 +159,6 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
     setAssignOperator('');
     setAssignError('');
     setPlanError('');
-    setExpandedNotes({});
   }, [card.sampleId]);
   useEffect(() => {
     setStorageParts(parseStorageLocation(card.storageLocation || ''));
@@ -204,27 +203,24 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
   }, [isOpen]);
   
   if (!cardProp) return null;
-  const renderNotePreview = (label: string, value: string | undefined, key: string, align: 'left' | 'right' = 'left') => {
-    const text = value?.trim() || '—';
-    const canExpand = Boolean(value && value.trim().length > 48);
-    const expanded = Boolean(expandedNotes[key]);
-    return (
-      <div className={cn('min-w-0', align === 'right' ? 'text-right' : 'text-left')}>
-        <div className={cn('text-sm text-muted-foreground', expanded ? 'whitespace-normal break-words' : 'truncate')}>
-          {label}: {text}
-        </div>
-        {canExpand && (
-          <button
-            type="button"
-            className="mt-0.5 text-xs text-primary hover:underline"
-            onClick={() => setExpandedNotes((prev) => ({ ...prev, [key]: !prev[key] }))}
-          >
-            {expanded ? 'Show less' : 'Show more'}
-          </button>
-        )}
-      </div>
-    );
+  const issueCount = Math.max(card.issueHistory?.length ?? 0, card.issueReason ? 1 : 0);
+  const returnCount = Math.max(card.returnNotes?.length ?? 0, card.returnNote ? 1 : 0);
+  const noteEntryCount = Math.max(issueCount, returnCount);
+  const noteEntries = Array.from({ length: noteEntryCount })
+    .map((_, idx) => ({
+      issue: card.issueHistory?.[idx] ?? (idx === 0 ? card.issueReason : undefined),
+      note: card.returnNotes?.[idx] ?? (idx === 0 ? card.returnNote : undefined),
+      idx,
+    }))
+    .filter((entry) => Boolean(entry.issue || entry.note));
+  const latestIssue = noteEntries.length > 0 ? noteEntries[noteEntries.length - 1].issue : undefined;
+  const latestReturnNote = noteEntries.length > 0 ? noteEntries[noteEntries.length - 1].note : undefined;
+  const formatNoteTime = (value?: string) => {
+    if (!value) return 'Time unavailable';
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? 'Time unavailable' : parsed.toLocaleString();
   };
+
   return (
     <>
       {/* Backdrop */}
@@ -284,19 +280,10 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                   <span className="text-sm text-foreground">{analysisBadgeDisplay.label}</span>
                 )}
               </div>
-              {((card.issueHistory && card.issueHistory.length > 0) || (card.returnNotes && card.returnNotes.length > 0) || card.issueReason || card.returnNote) && (
+              {noteEntries.length > 0 && (
                 <div className="space-y-1 text-sm text-muted-foreground">
-                  {Array.from({ length: Math.max(card.issueHistory?.length ?? 0, card.returnNotes?.length ?? 0, card.issueReason ? 1 : 0, card.returnNote ? 1 : 0) }).map((_, idx) => {
-                    const issue = card.issueHistory?.[idx] ?? (idx === 0 ? card.issueReason : undefined);
-                    const note = card.returnNotes?.[idx] ?? (idx === 0 ? card.returnNote : undefined);
-                    if (!issue && !note) return null;
-                    return (
-                      <div key={`${issue ?? 'issue'}-${note ?? 'note'}-${idx}`} className="grid grid-cols-2 gap-3 items-start">
-                        {renderNotePreview('Issue', issue, `issue-${idx}`, 'left')}
-                        {renderNotePreview('Return note', note, `return-${idx}`, 'right')}
-                      </div>
-                    );
-                  })}
+                  <p className="truncate">Latest issue: {latestIssue ?? '—'}</p>
+                  <p className="truncate">Latest return note: {latestReturnNote ?? '—'}</p>
                 </div>
               )}
               {role === 'admin' && (
@@ -435,6 +422,40 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
               </div>
             )}
           </div>
+
+          {noteEntries.length > 0 && (
+            <div className="space-y-2 mt-4">
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-muted-foreground uppercase tracking-wide">Issue & Return Notes</label>
+                <span className="text-xs text-muted-foreground">{noteEntries.length}</span>
+              </div>
+              <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                {noteEntries.map(({ issue, note, idx }) => {
+                  const issueTimestamp = issueHistoryTimestamps[idx];
+                  const returnTimestamp = returnNoteTimestamps[idx];
+                  const displayTimestamp = issueTimestamp ?? returnTimestamp;
+                  return (
+                    <div key={`${issue ?? 'issue'}-${note ?? 'note'}-${idx}`} className="rounded border border-border bg-muted/40 p-2 space-y-2">
+                      <div className="text-xs text-muted-foreground flex items-center gap-2">
+                        <Users className="w-3 h-3" />
+                        <span className="font-semibold text-foreground">System note</span>
+                        <span>·</span>
+                        <span>{formatNoteTime(displayTimestamp)}</span>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-foreground whitespace-pre-wrap break-words">
+                          <span className="text-muted-foreground">Issue:</span> {issue ?? '—'}
+                        </p>
+                        <p className="text-sm text-foreground whitespace-pre-wrap break-words">
+                          <span className="text-muted-foreground">Return note:</span> {note ?? '—'}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {card.methods && card.methods.length > 0 && (
             <div className="space-y-2 mt-4">

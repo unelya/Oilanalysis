@@ -25,6 +25,8 @@ const LAB_RETURN_KEY = 'labsync-lab-returned';
 const WAREHOUSE_RETURN_KEY = 'labsync-warehouse-returned';
 const ADMIN_RETURN_KEY = 'labsync-admin-return-notes';
 const ISSUE_REASON_KEY = 'labsync-issue-reasons';
+const ADMIN_RETURN_TIME_KEY = 'labsync-admin-return-note-times';
+const ISSUE_REASON_TIME_KEY = 'labsync-issue-reason-times';
 const ADMIN_STORED_KEY = 'labsync-admin-stored';
 const ADMIN_STORED_SOURCE_KEY = 'labsync-admin-stored-source';
 const CREATED_SAMPLE_KEY = 'labsync-created-samples';
@@ -219,6 +221,42 @@ export function KanbanBoard({
       Object.entries(parsed).forEach(([key, value]) => {
         if (Array.isArray(value)) {
           normalized[key] = value.filter(Boolean) as string[];
+        } else if (typeof value === 'string' && value.trim()) {
+          normalized[key] = [value.trim()];
+        }
+      });
+      return normalized;
+    } catch {
+      return {};
+    }
+  });
+  const [adminReturnNoteTimes, setAdminReturnNoteTimes] = useState<Record<string, string[]>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(ADMIN_RETURN_TIME_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      const normalized: Record<string, string[]> = {};
+      Object.entries(parsed).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+          normalized[key] = value.filter((item) => typeof item === 'string' && item.trim()) as string[];
+        } else if (typeof value === 'string' && value.trim()) {
+          normalized[key] = [value.trim()];
+        }
+      });
+      return normalized;
+    } catch {
+      return {};
+    }
+  });
+  const [issueReasonTimes, setIssueReasonTimes] = useState<Record<string, string[]>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(ISSUE_REASON_TIME_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      const normalized: Record<string, string[]> = {};
+      Object.entries(parsed).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+          normalized[key] = value.filter((item) => typeof item === 'string' && item.trim()) as string[];
         } else if (typeof value === 'string' && value.trim()) {
           normalized[key] = [value.trim()];
         }
@@ -475,6 +513,14 @@ export function KanbanBoard({
     if (typeof window === 'undefined') return;
     localStorage.setItem(ISSUE_REASON_KEY, JSON.stringify(issueReasons));
   }, [issueReasons]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(ADMIN_RETURN_TIME_KEY, JSON.stringify(adminReturnNoteTimes));
+  }, [adminReturnNoteTimes]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(ISSUE_REASON_TIME_KEY, JSON.stringify(issueReasonTimes));
+  }, [issueReasonTimes]);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(ADMIN_STORED_KEY, JSON.stringify(adminStoredByCard));
@@ -2506,6 +2552,10 @@ export function KanbanBoard({
       ...prev,
       [issuePrompt.card.sampleId]: [...(prev[issuePrompt.card.sampleId] ?? []), issueReason.trim()],
     }));
+    setIssueReasonTimes((prev) => ({
+      ...prev,
+      [issuePrompt.card.sampleId]: [...(prev[issuePrompt.card.sampleId] ?? []), new Date().toISOString()],
+    }));
     setAdminIssuesRead((prev) => {
       if (!(issuePrompt.card.sampleId in prev)) return prev;
       const next = { ...prev };
@@ -2535,6 +2585,11 @@ export function KanbanBoard({
         if (history.length === 0) return prev;
         const nextHistory = history.slice(0, -1);
         return { ...prev, [issuePrompt.card!.sampleId]: nextHistory };
+      });
+      setIssueReasonTimes((prev) => {
+        const history = prev[issuePrompt.card!.sampleId] ?? [];
+        if (history.length === 0) return prev;
+        return { ...prev, [issuePrompt.card!.sampleId]: history.slice(0, -1) };
       });
     });
   };
@@ -3427,6 +3482,8 @@ export function KanbanBoard({
         availableMethods={DEFAULT_ANALYSIS_TYPES}
         operatorOptions={labOperators}
         comments={selectedCard?.comments ?? []}
+        issueHistoryTimestamps={selectedCard ? issueReasonTimes[selectedCard.sampleId] ?? [] : []}
+        returnNoteTimestamps={selectedCard ? adminReturnNoteTimes[selectedCard.sampleId] ?? [] : []}
         onAddComment={handleAddComment}
         currentUserName={user?.fullName || user?.username}
       />
@@ -3536,6 +3593,10 @@ export function KanbanBoard({
                 setIssueReasons((prev) => ({
                   ...prev,
                   [targetId]: [...(prev[targetId] ?? []), reason],
+                }));
+                setIssueReasonTimes((prev) => ({
+                  ...prev,
+                  [targetId]: [...(prev[targetId] ?? []), new Date().toISOString()],
                 }));
                 setAdminNeedsRead((prev) => {
                   if (!(targetId in prev)) return prev;
@@ -3704,6 +3765,10 @@ export function KanbanBoard({
                 setAdminReturnNotes((prev) => ({
                   ...prev,
                   [target.sampleId]: [...(prev[target.sampleId] ?? []), note],
+                }));
+                setAdminReturnNoteTimes((prev) => ({
+                  ...prev,
+                  [target.sampleId]: [...(prev[target.sampleId] ?? []), new Date().toISOString()],
                 }));
                 setAdminReturnPrompt({ open: false, card: null });
                 setAdminReturnNote('');
