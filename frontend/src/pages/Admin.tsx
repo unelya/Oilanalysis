@@ -1,14 +1,26 @@
 import { useEffect, useState } from "react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { createUser, deleteUser, fetchUsers, updateUserRole } from "@/lib/api";
+import { createUser, deleteUser, fetchUsers, updateUser, updateUserRole } from "@/lib/api";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Check, ChevronsUpDown, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const roles = [
@@ -17,6 +29,8 @@ const roles = [
   { id: "action_supervision", label: "Action Supervision" },
   { id: "admin", label: "Admin" },
 ];
+
+const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 const Admin = () => {
   const [users, setUsers] = useState<{ id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[] }[]>([]);
@@ -27,6 +41,14 @@ const Admin = () => {
   const [newFullName, setNewFullName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newRole, setNewRole] = useState("lab_operator");
+  const [emailEditorOpen, setEmailEditorOpen] = useState(false);
+  const [emailConfirmOpen, setEmailConfirmOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<{ id: number; username: string; currentEmail: string }>({
+    id: 0,
+    username: "",
+    currentEmail: "",
+  });
+  const [editingEmail, setEditingEmail] = useState("");
   const { toast } = useToast();
 
   const load = async () => {
@@ -77,6 +99,10 @@ const Admin = () => {
       toast({ title: "Email required", variant: "destructive" });
       return;
     }
+    if (!isValidEmail(email)) {
+      toast({ title: "Enter a valid email address", variant: "destructive" });
+      return;
+    }
     setCreating(true);
     try {
       const created = await createUser({
@@ -123,6 +149,55 @@ const Admin = () => {
     } catch (err) {
       toast({
         title: "Failed to delete user",
+        description: err instanceof Error ? err.message : "Backend unreachable",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const openEmailEditor = (user: { id: number; username: string; email?: string | null }) => {
+    const currentEmail = (user.email ?? "").trim().toLowerCase();
+    setEditingUser({ id: user.id, username: user.username, currentEmail });
+    setEditingEmail(currentEmail);
+    setEmailEditorOpen(true);
+  };
+
+  const requestEmailUpdate = () => {
+    const nextEmail = editingEmail.trim().toLowerCase();
+    if (!nextEmail) {
+      toast({ title: "Email required", variant: "destructive" });
+      return;
+    }
+    if (!isValidEmail(nextEmail)) {
+      toast({ title: "Enter a valid email address", variant: "destructive" });
+      return;
+    }
+    if (nextEmail === editingUser.currentEmail) {
+      setEmailEditorOpen(false);
+      return;
+    }
+    setEmailConfirmOpen(true);
+  };
+
+  const confirmEmailUpdate = async () => {
+    const nextEmail = editingEmail.trim().toLowerCase();
+    if (!nextEmail) return;
+    setEmailConfirmOpen(false);
+    setSavingId(editingUser.id);
+    try {
+      const updated = await updateUser(editingUser.id, { email: nextEmail });
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === editingUser.id ? { ...u, email: updated.email, role: updated.role, roles: updated.roles } : u
+        )
+      );
+      setEmailEditorOpen(false);
+      toast({ title: "Email updated" });
+    } catch (err) {
+      toast({
+        title: "Failed to update email",
         description: err instanceof Error ? err.message : "Backend unreachable",
         variant: "destructive",
       });
@@ -194,7 +269,19 @@ const Admin = () => {
                 <div key={user.id} className="grid grid-cols-[repeat(4,minmax(0,1fr))_120px] gap-3 items-start px-4 py-3 text-sm text-foreground">
                   <div className="font-mono text-primary">{user.username}</div>
                   <div>{user.full_name}</div>
-                  <div className="text-muted-foreground">{user.email || "—"}</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="truncate text-muted-foreground">{user.email || "—"}</div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => openEmailEditor(user)}
+                      disabled={savingId === user.id}
+                      aria-label={`Change email for ${user.username}`}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                   <div>
                     <div className="space-y-2">
                       <div className="flex flex-wrap gap-1">
@@ -263,6 +350,49 @@ const Admin = () => {
           </div>
         </div>
       </div>
+      <Dialog open={emailEditorOpen} onOpenChange={setEmailEditorOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update user email</DialogTitle>
+            <DialogDescription>
+              Change the email for <span className="font-medium text-foreground">{editingUser.username}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="edit-user-email">Email</Label>
+            <Input
+              id="edit-user-email"
+              type="email"
+              value={editingEmail}
+              onChange={(e) => setEditingEmail(e.target.value)}
+              placeholder="e.g. user@company.com"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailEditorOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={requestEmailUpdate} disabled={savingId === editingUser.id}>
+              Save email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={emailConfirmOpen} onOpenChange={setEmailConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm email change</AlertDialogTitle>
+            <AlertDialogDescription>
+              Update <span className="font-medium text-foreground">{editingUser.username}</span> email to{" "}
+              <span className="font-medium text-foreground">{editingEmail.trim().toLowerCase()}</span>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmEmailUpdate}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

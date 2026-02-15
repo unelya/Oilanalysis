@@ -91,5 +91,6 @@ class UserCreateOut(UserOut):
 
 
 class UserUpdate(BaseModel):
+    email: EmailStr | None = None
     role: str | None = Field(default=None, pattern="^(warehouse_worker|lab_operator|action_supervision|admin)$")
     roles: list[str] | None = None

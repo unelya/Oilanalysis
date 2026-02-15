@@ -233,14 +233,18 @@ export async function createUser(payload: { username: string; fullName: string; 
   return (await res.json()) as { id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[]; default_password: string };
 }
 
-export async function updateUserRole(id: number, roles: string[]) {
+export async function updateUser(id: number, payload: { roles?: string[]; email?: string }) {
   const res = await fetch(`/api/admin/users/${id}`, {
     method: "PATCH",
     headers: authHeaders(),
-    body: JSON.stringify({ roles }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`Failed to update user (${res.status})`);
   return (await res.json()) as { id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[] };
+}
+
+export async function updateUserRole(id: number, roles: string[]) {
+  return updateUser(id, { roles });
 }
 
 export async function deleteUser(id: number) {

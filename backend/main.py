@@ -515,10 +515,20 @@ async def create_user(payload: UserCreate, request: Request, db: Session = Depen
 
 
 @app.patch("/admin/users/{user_id}", response_model=UserOut)
-async def update_user_role(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
+async def update_user(user_id: int, payload: UserUpdate, request: Request, db: Session = Depends(get_db)):
+  if not is_admin_from_headers(request):
+    raise HTTPException(status_code=403, detail="Admin only")
   row = db.get(UserModel, user_id)
   if not row:
     raise HTTPException(status_code=404, detail="User not found")
+  if payload.email is not None:
+    next_email = str(payload.email).strip().lower()
+    existing_email = db.execute(
+      select(UserModel).where(UserModel.email == next_email, UserModel.id != user_id)
+    ).scalars().first()
+    if existing_email:
+      raise HTTPException(status_code=400, detail="Email already exists")
+    row.email = next_email
   roles = payload.roles or ([payload.role] if payload.role else parse_roles(row.roles) or [row.role])
   primary = roles[0] if roles else row.role
   row.role = primary
