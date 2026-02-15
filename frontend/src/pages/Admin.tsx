@@ -57,16 +57,26 @@ const Admin = () => {
 
   const handleCreate = async () => {
     const username = newUsername.trim();
+    const fullName = newFullName.trim();
+    const role = newRole.trim();
     if (!username) {
       toast({ title: "Username required", variant: "destructive" });
+      return;
+    }
+    if (!fullName) {
+      toast({ title: "Full name required", variant: "destructive" });
+      return;
+    }
+    if (!role) {
+      toast({ title: "Default role required", variant: "destructive" });
       return;
     }
     setCreating(true);
     try {
       const created = await createUser({
         username,
-        fullName: newFullName.trim() || undefined,
-        role: newRole,
+        fullName,
+        role,
       });
       setUsers((prev) => [
         ...prev,
@@ -132,7 +142,7 @@ const Admin = () => {
               </div>
               <div>
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">Full name</label>
-                <Input value={newFullName} onChange={(e) => setNewFullName(e.target.value)} placeholder="Optional" />
+                <Input value={newFullName} onChange={(e) => setNewFullName(e.target.value)} placeholder="e.g. Ivan Petrov" />
               </div>
               <div>
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">Default role</label>
@@ -149,7 +159,7 @@ const Admin = () => {
                 </select>
               </div>
               <div className="flex items-end">
-                <Button onClick={handleCreate} disabled={creating}>
+                <Button onClick={handleCreate} disabled={creating || !newUsername.trim() || !newFullName.trim() || !newRole.trim()}>
                   {creating ? "Creating..." : "Create user"}
                 </Button>
               </div>
