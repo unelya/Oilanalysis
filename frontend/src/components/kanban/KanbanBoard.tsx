@@ -27,6 +27,7 @@ const ADMIN_RETURN_KEY = 'labsync-admin-return-notes';
 const ISSUE_REASON_KEY = 'labsync-issue-reasons';
 const ADMIN_RETURN_TIME_KEY = 'labsync-admin-return-note-times';
 const ISSUE_REASON_TIME_KEY = 'labsync-issue-reason-times';
+const CONFLICT_RESOLUTION_TIME_KEY = 'labsync-conflict-resolution-times';
 const ADMIN_STORED_KEY = 'labsync-admin-stored';
 const ADMIN_STORED_SOURCE_KEY = 'labsync-admin-stored-source';
 const CREATED_SAMPLE_KEY = 'labsync-created-samples';
@@ -109,6 +110,22 @@ export function KanbanBoard({
   const [plannedAnalyses, setPlannedAnalyses] = useState<PlannedAnalysisCard[]>([]);
   const [actionBatches, setActionBatches] = useState<{ id: number; title: string; date: string; status: string }[]>([]);
   const [conflicts, setConflicts] = useState<{ id: number; old_payload: string; new_payload: string; status: string; resolution_note?: string | null }[]>([]);
+  const [conflictResolutionTimes, setConflictResolutionTimes] = useState<Record<string, string>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(CONFLICT_RESOLUTION_TIME_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      const normalized: Record<string, string> = {};
+      Object.entries(parsed).forEach(([key, value]) => {
+        if (typeof value === 'string' && value.trim()) {
+          normalized[key] = value.trim();
+        }
+      });
+      return normalized;
+    } catch {
+      return {};
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -144,7 +161,7 @@ export function KanbanBoard({
       | { kind: 'deleted'; sampleId: string; prevDeleted?: DeletedInfo; prevCard?: Partial<KanbanCard> }
       | { kind: 'adminReturn'; sampleId: string; prevReturnNotes?: string[]; prevLabOverride?: KanbanCard['status']; prevLabReturnHighlight?: boolean; prevWarehouseReturnHighlight?: boolean; prevSample?: Partial<KanbanCard> }
       | { kind: 'issueReason'; sampleId: string; prevStatus?: KanbanCard['status']; prevStatusLabel?: string; prevIssueHistory?: string[]; prevIssueReason?: string }
-      | { kind: 'conflict'; conflictId: number; prevStatus: string; prevResolutionNote?: string | null }
+      | { kind: 'conflict'; conflictId: number; prevStatus: string; prevResolutionNote?: string | null; prevResolutionAt?: string | null }
     )[]
   >([]);
   const undoStackRef = useRef<(typeof undoStack)[number][]>([]);
@@ -375,6 +392,14 @@ export function KanbanBoard({
   const [labNeedsAttentionReasons, setLabNeedsAttentionReasons] = useState<Record<string, string>>({});
   const [labNeedsPrompt, setLabNeedsPrompt] = useState<{ open: boolean; cardId: string | null }>({ open: false, cardId: null });
   const [labNeedsReason, setLabNeedsReason] = useState('');
+  const [conflictResolvePrompt, setConflictResolvePrompt] = useState<{
+    open: boolean;
+    conflictId: number | null;
+    prevStatus?: string;
+    prevResolutionNote?: string | null;
+    prevResolutionAt?: string | null;
+  }>({ open: false, conflictId: null });
+  const [conflictResolutionNote, setConflictResolutionNote] = useState('');
   const storageFormatRegex = /^Fridge\s+[A-Za-z0-9]+\s*·\s*Bin\s+[A-Za-z0-9]+\s*·\s*Place\s+[A-Za-z0-9]+$/;
   const isValidStorageLocation = (value: string) => storageFormatRegex.test(value.trim());
   const formatStorageLocation = (parts: { fridge: string; bin: string; place: string }) =>
@@ -521,6 +546,10 @@ export function KanbanBoard({
     if (typeof window === 'undefined') return;
     localStorage.setItem(ISSUE_REASON_TIME_KEY, JSON.stringify(issueReasonTimes));
   }, [issueReasonTimes]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(CONFLICT_RESOLUTION_TIME_KEY, JSON.stringify(conflictResolutionTimes));
+  }, [conflictResolutionTimes]);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(ADMIN_STORED_KEY, JSON.stringify(adminStoredByCard));
@@ -1169,6 +1198,7 @@ export function KanbanBoard({
         conflictOld: c.old_payload,
         conflictNew: c.new_payload,
         conflictResolutionNote: c.resolution_note,
+        conflictResolutionAt: conflictResolutionTimes[String(c.id)],
       }));
       const cardsWithComments = withComments([...batchCards, ...conflictCards]);
       return getColumnData(filterCards(cardsWithComments), role);
@@ -1200,7 +1230,7 @@ export function KanbanBoard({
       return getColumnData(filterCards(decorated), role);
     }
     return getColumnData(filterCards(withComments(visibleCards)), role);
-  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, adminStoredByCard, labStatusOverrides, labNeedsAttentionReasons, labReturnHighlights, warehouseReturnHighlights, adminReturnNotes, issueReasons, filterMethodWhitelist]);
+  }, [cards, plannedAnalyses, actionBatches, conflicts, role, filterCards, methodFilter, assignedOnly, incompleteOnly, commentsByCard, user?.fullName, deletedByCard, adminStoredByCard, labStatusOverrides, labNeedsAttentionReasons, labReturnHighlights, warehouseReturnHighlights, adminReturnNotes, issueReasons, filterMethodWhitelist, conflictResolutionTimes]);
 
   const displayColumns = useMemo(() => {
     if (sortMode === 'none') return columns;
@@ -2013,9 +2043,34 @@ export function KanbanBoard({
         });
         return;
       }
+      if (columnId !== 'done') {
+        toast({
+          title: 'Invalid move',
+          description: 'Conflict items can only move to Stored when resolving.',
+          variant: 'default',
+        });
+        return;
+      }
+      if (role === 'action_supervision') {
+        setConflictResolvePrompt({
+          open: true,
+          conflictId: conflict.id,
+          prevStatus: conflict.status,
+          prevResolutionNote: conflict.resolution_note,
+          prevResolutionAt: conflictResolutionTimes[String(conflict.id)] ?? null,
+        });
+        setConflictResolutionNote(conflict.resolution_note?.trim() ?? '');
+        return;
+      }
       setUndoStack((prev) => [
         ...prev.slice(-19),
-        { kind: 'conflict', conflictId: conflict.id, prevStatus: conflict.status, prevResolutionNote: conflict.resolution_note },
+        {
+          kind: 'conflict',
+          conflictId: conflict.id,
+          prevStatus: conflict.status,
+          prevResolutionNote: conflict.resolution_note,
+          prevResolutionAt: conflictResolutionTimes[String(conflict.id)] ?? null,
+        },
       ]);
       setConflicts((prev) =>
         prev.map((c) => (c.id === conflict.id ? { ...c, status: 'resolved', resolution_note: c.resolution_note } : c)),
@@ -2499,6 +2554,15 @@ export function KanbanBoard({
             : c,
         ),
       );
+      setConflictResolutionTimes((prev) => {
+        const next = { ...prev };
+        if (lastAction.prevResolutionAt) {
+          next[String(lastAction.conflictId)] = lastAction.prevResolutionAt;
+        } else {
+          delete next[String(lastAction.conflictId)];
+        }
+        return next;
+      });
       toast({ title: 'Undo', description: 'Last conflict change reverted' });
     }
   };
@@ -2789,11 +2853,109 @@ export function KanbanBoard({
   };
 
   const handleResolveConflict = (conflictId: number) => async (note?: string) => {
+    const resolvedAt = new Date().toISOString();
     try {
       const updated = await resolveConflict(conflictId, note);
       setConflicts((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      setConflictResolutionTimes((prev) => ({ ...prev, [String(conflictId)]: resolvedAt }));
+      if (selectedCard?.id === `conflict-${conflictId}`) {
+        setSelectedCard((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: 'done',
+                statusLabel: columnConfigByRole.action_supervision.find((c) => c.id === 'done')?.title ?? prev.statusLabel,
+                conflictResolutionNote: updated.resolution_note ?? note,
+                conflictResolutionAt: resolvedAt,
+              }
+            : prev,
+        );
+      }
     } catch {
       // ignore for now
+    }
+  };
+
+  const confirmConflictResolution = async () => {
+    const conflictId = conflictResolvePrompt.conflictId;
+    const note = conflictResolutionNote.trim();
+    if (!conflictId || !note) return;
+    const prevStatus = conflictResolvePrompt.prevStatus ?? 'open';
+    const prevResolutionNote = conflictResolvePrompt.prevResolutionNote ?? null;
+    const prevResolutionAt = conflictResolvePrompt.prevResolutionAt ?? null;
+    const resolvedAt = new Date().toISOString();
+    setUndoStack((prev) => [
+      ...prev.slice(-19),
+      { kind: 'conflict', conflictId, prevStatus, prevResolutionNote, prevResolutionAt },
+    ]);
+    setConflicts((prev) =>
+      prev.map((c) => (c.id === conflictId ? { ...c, status: 'resolved', resolution_note: note } : c)),
+    );
+    setConflictResolutionTimes((prev) => ({ ...prev, [String(conflictId)]: resolvedAt }));
+    if (selectedCard?.id === `conflict-${conflictId}`) {
+      setSelectedCard({
+        ...selectedCard,
+        status: 'done',
+        statusLabel: columnConfigByRole.action_supervision.find((c) => c.id === 'done')?.title ?? selectedCard.statusLabel,
+        conflictResolutionNote: note,
+        conflictResolutionAt: resolvedAt,
+      });
+    }
+    setConflictResolvePrompt({ open: false, conflictId: null });
+    setConflictResolutionNote('');
+    try {
+      const updated = await resolveConflict(conflictId, note);
+      setConflicts((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      if (selectedCard?.id === `conflict-${conflictId}`) {
+        setSelectedCard((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: 'done',
+                statusLabel: columnConfigByRole.action_supervision.find((c) => c.id === 'done')?.title ?? prev.statusLabel,
+                conflictResolutionNote: updated.resolution_note ?? note,
+                conflictResolutionAt: resolvedAt,
+              }
+            : prev,
+        );
+      }
+      toast({ title: 'Conflict resolved', description: 'Resolution note saved' });
+    } catch (err) {
+      setConflicts((prev) =>
+        prev.map((c) =>
+          c.id === conflictId ? { ...c, status: prevStatus, resolution_note: prevResolutionNote } : c,
+        ),
+      );
+      setConflictResolutionTimes((prev) => {
+        const next = { ...prev };
+        if (prevResolutionAt) {
+          next[String(conflictId)] = prevResolutionAt;
+        } else {
+          delete next[String(conflictId)];
+        }
+        return next;
+      });
+      if (selectedCard?.id === `conflict-${conflictId}`) {
+        setSelectedCard((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: prevStatus === 'resolved' ? 'done' : 'progress',
+                statusLabel:
+                  prevStatus === 'resolved'
+                    ? columnConfigByRole.action_supervision.find((c) => c.id === 'done')?.title ?? prev.statusLabel
+                    : columnConfigByRole.action_supervision.find((c) => c.id === 'progress')?.title ?? prev.statusLabel,
+                conflictResolutionNote: prevResolutionNote ?? undefined,
+                conflictResolutionAt: prevResolutionAt ?? undefined,
+              }
+            : prev,
+        );
+      }
+      toast({
+        title: 'Failed to resolve conflict',
+        description: err instanceof Error ? err.message : 'Backend unreachable',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -3627,6 +3789,43 @@ export function KanbanBoard({
               disabled={!labNeedsReason.trim()}
             >
               Send to Needs attention
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={conflictResolvePrompt.open}
+        onOpenChange={(open) => {
+          setConflictResolvePrompt((prev) => ({ ...prev, open, conflictId: open ? prev.conflictId : null }));
+          if (!open) {
+            setConflictResolutionNote('');
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Resolve conflict</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Provide a resolution note before moving this conflict to Stored.</p>
+          <Textarea
+            autoFocus
+            placeholder="Resolution note"
+            value={conflictResolutionNote}
+            onChange={(e) => setConflictResolutionNote(e.target.value)}
+            className="min-h-[96px]"
+          />
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setConflictResolvePrompt({ open: false, conflictId: null });
+                setConflictResolutionNote('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={confirmConflictResolution} disabled={!conflictResolutionNote.trim()}>
+              Resolve & move to Stored
             </Button>
           </DialogFooter>
         </DialogContent>

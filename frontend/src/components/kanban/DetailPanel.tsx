@@ -416,9 +416,17 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                 </div>
               </div>
             {card.conflictResolutionNote && (
-              <div className="space-y-1 col-span-2">
+              <div className="space-y-2 col-span-2">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide">Resolution note</label>
-                <p className="text-sm text-foreground whitespace-pre-wrap break-words">{card.conflictResolutionNote}</p>
+                <div className="rounded border border-border bg-muted/40 p-2 space-y-2">
+                  <div className="text-xs text-muted-foreground flex items-center gap-2">
+                    <Users className="w-3 h-3" />
+                    <span className="font-semibold text-foreground">System note</span>
+                    <span>·</span>
+                    <span>{formatNoteTime(card.conflictResolutionAt)}</span>
+                  </div>
+                  <p className="text-sm text-foreground whitespace-pre-wrap break-words">{card.conflictResolutionNote}</p>
+                </div>
               </div>
             )}
           </div>
