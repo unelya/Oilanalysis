@@ -36,6 +36,7 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
   const [storageParts, setStorageParts] = useState({ fridge: '', bin: '', place: '' });
   const [error, setError] = useState('');
   const [dateOpen, setDateOpen] = useState(false);
+  const isFutureSamplingDate = form.samplingDate > today;
 
   useEffect(() => {
     if (!dialogOpen) {
@@ -63,6 +64,10 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
     event.preventDefault();
     if (!form.sampleId || !form.wellId || !form.horizon || !form.samplingDate) {
       setError('All required fields must be filled');
+      return;
+    }
+    if (isFutureSamplingDate) {
+      setError('Sampling date cannot be in the future');
       return;
     }
     const normalized = form.sampleId.trim().toLowerCase();
@@ -136,9 +141,11 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
                 <CalendarCmp
                   mode="single"
                   selected={form.samplingDate ? new Date(form.samplingDate) : new Date()}
+                  disabled={{ after: new Date() }}
                   onSelect={(date) => {
                     const next = date ? format(date, 'yyyy-MM-dd') : today;
                     setForm((prev) => ({ ...prev, samplingDate: next }));
+                    setError('');
                     setDateOpen(false);
                   }}
                   initialFocus
@@ -178,10 +185,13 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
               </div>
             </div>
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {isFutureSamplingDate && (
+            <p className="text-sm text-destructive">Sampling date cannot be in the future</p>
+          )}
+          {error && error !== 'Sampling date cannot be in the future' && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit">Create</Button>
+            <Button type="submit" disabled={isFutureSamplingDate}>Create</Button>
           </DialogFooter>
         </form>
       </DialogContent>
