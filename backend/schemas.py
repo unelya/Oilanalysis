@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class Sample(BaseModel):
@@ -73,13 +73,15 @@ class UserOut(BaseModel):
     id: int
     username: str
     full_name: str
+    email: EmailStr | None = None
     role: str
     roles: list[str]
 
 
 class UserCreate(BaseModel):
     username: str = Field(min_length=2, max_length=64)
-    full_name: str | None = Field(default=None, max_length=128)
+    full_name: str = Field(min_length=2, max_length=128)
+    email: EmailStr
     role: str | None = Field(default=None, pattern="^(warehouse_worker|lab_operator|action_supervision|admin)$")
     roles: list[str] | None = None
 

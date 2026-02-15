@@ -19,12 +19,13 @@ const roles = [
 ];
 
 const Admin = () => {
-  const [users, setUsers] = useState<{ id: number; username: string; full_name: string; role: string; roles: string[] }[]>([]);
+  const [users, setUsers] = useState<{ id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[] }[]>([]);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newFullName, setNewFullName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
   const [newRole, setNewRole] = useState("lab_operator");
   const { toast } = useToast();
 
@@ -58,6 +59,7 @@ const Admin = () => {
   const handleCreate = async () => {
     const username = newUsername.trim();
     const fullName = newFullName.trim();
+    const email = newEmail.trim().toLowerCase();
     const role = newRole.trim();
     if (!username) {
       toast({ title: "Username required", variant: "destructive" });
@@ -71,11 +73,16 @@ const Admin = () => {
       toast({ title: "Default role required", variant: "destructive" });
       return;
     }
+    if (!email) {
+      toast({ title: "Email required", variant: "destructive" });
+      return;
+    }
     setCreating(true);
     try {
       const created = await createUser({
         username,
         fullName,
+        email,
         role,
       });
       setUsers((prev) => [
@@ -84,12 +91,14 @@ const Admin = () => {
           id: created.id,
           username: created.username,
           full_name: created.full_name,
+          email: created.email,
           role: created.role,
           roles: created.roles,
         },
       ]);
       setNewUsername("");
       setNewFullName("");
+      setNewEmail("");
       setNewRole("lab_operator");
       toast({
         title: "User created",
@@ -135,7 +144,7 @@ const Admin = () => {
           </div>
           <Separator />
           <div className="mt-4 rounded-2xl border border-border/60 bg-card/70 p-4">
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-5 gap-3">
               <div>
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">Username</label>
                 <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value)} placeholder="e.g. lab.tech" />
@@ -143,6 +152,10 @@ const Admin = () => {
               <div>
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">Full name</label>
                 <Input value={newFullName} onChange={(e) => setNewFullName(e.target.value)} placeholder="e.g. Ivan Petrov" />
+              </div>
+              <div>
+                <label className="text-xs uppercase tracking-wide text-muted-foreground">Email</label>
+                <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="e.g. user@company.com" />
               </div>
               <div>
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">Default role</label>
@@ -159,7 +172,7 @@ const Admin = () => {
                 </select>
               </div>
               <div className="flex items-end">
-                <Button onClick={handleCreate} disabled={creating || !newUsername.trim() || !newFullName.trim() || !newRole.trim()}>
+                <Button onClick={handleCreate} disabled={creating || !newUsername.trim() || !newFullName.trim() || !newEmail.trim() || !newRole.trim()}>
                   {creating ? "Creating..." : "Create user"}
                 </Button>
               </div>
@@ -169,17 +182,19 @@ const Admin = () => {
             </p>
           </div>
           <div className="mt-4 rounded-2xl border border-border/60 bg-card/70">
-            <div className="grid grid-cols-4 text-xs uppercase tracking-wide text-muted-foreground px-4 py-2 border-b border-border/60">
+            <div className="grid grid-cols-5 text-xs uppercase tracking-wide text-muted-foreground px-4 py-2 border-b border-border/60">
               <div>Username</div>
               <div>Full name</div>
+              <div>Email</div>
               <div>Roles</div>
               <div>Status</div>
             </div>
             <div className="divide-y divide-border/60">
               {users.map((user) => (
-                <div key={user.id} className="grid grid-cols-4 items-start px-4 py-3 text-sm text-foreground gap-2">
+                <div key={user.id} className="grid grid-cols-5 items-start px-4 py-3 text-sm text-foreground gap-2">
                   <div className="font-mono text-primary">{user.username}</div>
                   <div>{user.full_name}</div>
+                  <div className="text-muted-foreground">{user.email || "—"}</div>
                   <div>
                     <div className="space-y-2">
                       <div className="flex flex-wrap gap-1">

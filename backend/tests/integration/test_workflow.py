@@ -55,7 +55,7 @@ def test_action_and_conflict_workflow(client):
 
 
 def test_admin_user_creation_requires_admin(client):
-    payload = {"username": "qa.user", "full_name": "QA User", "role": "lab_operator"}
+    payload = {"username": "qa.user", "full_name": "QA User", "email": "qa.user@example.com", "role": "lab_operator"}
     res = client.post("/admin/users", json=payload)
     assert res.status_code == 403
 
@@ -63,4 +63,5 @@ def test_admin_user_creation_requires_admin(client):
     assert res.status_code == 201
     data = res.json()
     assert data["username"] == "qa.user"
+    assert data["email"] == "qa.user@example.com"
     assert data["role"] == "lab_operator"

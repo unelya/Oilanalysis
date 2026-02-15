@@ -472,6 +472,7 @@ async def list_users(db: Session = Depends(get_db)):
       id=r.id,
       username=r.username,
       full_name=r.full_name,
+      email=r.email,
       role=parse_roles(r.roles)[0] if parse_roles(r.roles) else r.role,
       roles=parse_roles(r.roles) or [r.role],
     )
@@ -485,14 +486,20 @@ async def create_user(payload: UserCreate, request: Request, db: Session = Depen
   username = payload.username.strip()
   if not username:
     raise HTTPException(status_code=400, detail="Username required")
+  email = str(payload.email).strip().lower()
+  if not email:
+    raise HTTPException(status_code=400, detail="Email required")
   existing = db.execute(select(UserModel).where(UserModel.username == username)).scalars().first()
   if existing:
     raise HTTPException(status_code=400, detail="Username already exists")
-  full_name = payload.full_name or username.replace(".", " ").title()
+  existing_email = db.execute(select(UserModel).where(UserModel.email == email)).scalars().first()
+  if existing_email:
+    raise HTTPException(status_code=400, detail="Email already exists")
+  full_name = payload.full_name.strip()
   roles = payload.roles or ([payload.role] if payload.role else ["lab_operator"])
   roles = [r for r in roles if r]
   primary = roles[0] if roles else "lab_operator"
-  row = UserModel(username=username, full_name=full_name, role=primary, roles=serialize_roles(roles))
+  row = UserModel(username=username, full_name=full_name, email=email, role=primary, roles=serialize_roles(roles))
   db.add(row)
   db.commit()
   db.refresh(row)
@@ -500,6 +507,7 @@ async def create_user(payload: UserCreate, request: Request, db: Session = Depen
     id=row.id,
     username=row.username,
     full_name=row.full_name,
+    email=row.email,
     role=row.role,
     roles=parse_roles(row.roles) or [row.role],
     default_password=DEFAULT_PASSWORD,
@@ -518,7 +526,7 @@ async def update_user_role(user_id: int, payload: UserUpdate, db: Session = Depe
   db.add(row)
   db.commit()
   db.refresh(row)
-  return UserOut(id=row.id, username=row.username, full_name=row.full_name, role=row.role, roles=parse_roles(row.roles) or [row.role])
+  return UserOut(id=row.id, username=row.username, full_name=row.full_name, email=row.email, role=row.role, roles=parse_roles(row.roles) or [row.role])
 
 
 @app.delete("/admin/users/{user_id}")

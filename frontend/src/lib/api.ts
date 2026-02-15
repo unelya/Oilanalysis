@@ -214,22 +214,23 @@ export async function resolveConflict(id: number, note?: string) {
 export async function fetchUsers() {
   const res = await fetch("/api/admin/users");
   if (!res.ok) throw new Error(`Failed to load users (${res.status})`);
-  return (await res.json()) as { id: number; username: string; full_name: string; role: string; roles: string[] }[];
+  return (await res.json()) as { id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[] }[];
 }
 
-export async function createUser(payload: { username: string; fullName?: string; role?: string; roles?: string[] }) {
+export async function createUser(payload: { username: string; fullName: string; email: string; role?: string; roles?: string[] }) {
   const res = await fetch("/api/admin/users", {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify({
       username: payload.username,
       full_name: payload.fullName,
+      email: payload.email,
       role: payload.role,
       roles: payload.roles,
     }),
   });
   if (!res.ok) throw new Error(`Failed to create user (${res.status})`);
-  return (await res.json()) as { id: number; username: string; full_name: string; role: string; roles: string[]; default_password: string };
+  return (await res.json()) as { id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[]; default_password: string };
 }
 
 export async function updateUserRole(id: number, roles: string[]) {
@@ -239,7 +240,7 @@ export async function updateUserRole(id: number, roles: string[]) {
     body: JSON.stringify({ roles }),
   });
   if (!res.ok) throw new Error(`Failed to update user (${res.status})`);
-  return (await res.json()) as { id: number; username: string; full_name: string; role: string; roles: string[] };
+  return (await res.json()) as { id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[] };
 }
 
 export async function deleteUser(id: number) {
