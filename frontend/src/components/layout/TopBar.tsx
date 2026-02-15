@@ -47,11 +47,8 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
   return (
     <header className="h-14 border-b border-border bg-card flex items-center justify-between px-6">
       <div className="flex items-center gap-8">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-mono font-bold text-sm">LS</span>
-          </div>
-          <span className="font-semibold text-foreground tracking-tight">LabSync</span>
+        <div className="flex items-center">
+          <img src="/tatneft.png" alt="Tatneft" className="h-9 w-auto max-w-[220px] object-contain" />
         </div>
         
         <div className="relative w-80">
