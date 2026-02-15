@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LayoutGrid, FlaskConical, BarChart3, Settings, ChevronDown, ClipboardList } from 'lucide-react';
+import { LayoutGrid, FlaskConical, BarChart3, Settings, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NavLink } from '@/components/NavLink';
 import { fetchPlannedAnalyses, fetchSamples } from '@/lib/api';
@@ -101,16 +101,6 @@ export function Sidebar() {
           />
         )}
       </nav>
-      
-      <div className="p-3 border-t border-sidebar-border">
-        <button className="flex items-center gap-2 w-full px-3 py-2 rounded-md hover:bg-sidebar-accent transition-colors">
-          <div className="w-6 h-6 rounded bg-primary/20 flex items-center justify-center">
-            <span className="text-primary text-xs font-mono">M1</span>
-          </div>
-          <span className="text-sm text-sidebar-foreground flex-1 text-left">Main Laboratory</span>
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        </button>
-      </div>
     </aside>
   );
 }
