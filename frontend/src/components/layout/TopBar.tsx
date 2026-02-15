@@ -135,7 +135,6 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
         <div className="flex items-center gap-3">
           <div className="text-right">
             <p className="text-sm font-medium text-foreground">{user?.fullName ?? "Guest"}</p>
-            <p className="text-xs text-muted-foreground">{user?.role ?? "Not signed in"}</p>
           </div>
           <Avatar className="h-9 w-9 border border-border">
             <AvatarFallback className="bg-secondary text-secondary-foreground text-sm font-medium">
