@@ -190,6 +190,7 @@ export function KanbanBoard({
   const [deletePrompt, setDeletePrompt] = useState<{ open: boolean; card: KanbanCard | null }>({ open: false, card: null });
   const [deleteReason, setDeleteReason] = useState('');
   const isAdminUser = user?.role === 'admin';
+  const hasLabOperatorRights = Boolean(user?.roles?.includes('lab_operator') || user?.role === 'lab_operator');
   const currentUserName = (user?.fullName || '').trim();
   const currentUserKey = currentUserName.toLowerCase();
   const assignmentReadKey = currentUserKey ? `labsync-assignment-read:${currentUserKey}` : '';
@@ -564,11 +565,17 @@ export function KanbanBoard({
   const pushAssignmentNotifications = useCallback(
     (entries: { sampleId: string; method: string; action: 'assigned' | 'unassigned'; recipient: string }[]) => {
       if (typeof window === 'undefined' || entries.length === 0) return;
+      const actorKey = currentUserName.trim().toLowerCase();
+      const filteredEntries = entries.filter((entry) => {
+        if (!hasLabOperatorRights) return true;
+        return entry.recipient.trim().toLowerCase() !== actorKey;
+      });
+      if (filteredEntries.length === 0) return;
       const existing = readAssignmentNotifications();
       const now = Date.now();
       const next = [
         ...existing,
-        ...entries.map((entry, idx) => ({
+        ...filteredEntries.map((entry, idx) => ({
           id: `assign-${now}-${idx}-${Math.random().toString(16).slice(2)}`,
           sampleId: entry.sampleId,
           method: entry.method,
@@ -581,7 +588,7 @@ export function KanbanBoard({
       writeAssignmentNotifications(next.slice(-500));
       setAssignmentVersion((prev) => prev + 1);
     },
-    [currentUserName],
+    [currentUserName, hasLabOperatorRights],
   );
 
   useEffect(() => {
@@ -3760,7 +3767,7 @@ export function KanbanBoard({
               ? []
               : role === 'lab_operator' && !isAdminUser
               ? Array.from(new Set([...(normalizeAssignees(target.assignedTo) || []), requestedOperator]))
-              : [requestedOperator];
+              : Array.from(new Set([...(normalizeAssignees(target.assignedTo) || []), requestedOperator]));
             updatePlannedAnalysis(target.id, target.status, nextAssignees).then(() => {
               setPlannedAnalyses((prev) =>
                 prev.map((pa) => {
