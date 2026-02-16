@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { createUser, deleteUser, fetchUsers, updateUser, updateUserMethodPermissions, updateUserRole } from "@/lib/api";
+import { AdminEvent, createUser, deleteUser, fetchAdminEvents, fetchUsers, updateUser, updateUserMethodPermissions, updateUserRole } from "@/lib/api";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,17 @@ const roles = [
   { id: "admin", label: "Admin" },
 ];
 const methodOptions = ["SARA", "IR", "Mass Spectrometry", "Viscosity"];
+const eventEntityTypes = ["sample", "planned_analysis", "conflict", "user"];
+const eventActions = [
+  "created",
+  "updated",
+  "deleted",
+  "status_change",
+  "operator_assigned",
+  "operator_unassigned",
+  "role_changed",
+  "method_permissions_changed",
+];
 
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
@@ -50,6 +61,14 @@ const Admin = () => {
     currentEmail: "",
   });
   const [editingEmail, setEditingEmail] = useState("");
+  const [events, setEvents] = useState<AdminEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventQuery, setEventQuery] = useState("");
+  const [eventEntityType, setEventEntityType] = useState("");
+  const [eventAction, setEventAction] = useState("");
+  const [eventActor, setEventActor] = useState("");
+  const [eventEntityId, setEventEntityId] = useState("");
+  const [eventSort, setEventSort] = useState<"desc" | "asc">("desc");
   const { toast } = useToast();
 
   const load = async () => {
@@ -64,7 +83,45 @@ const Admin = () => {
 
   useEffect(() => {
     load();
+    void loadEvents();
   }, []);
+
+  const loadEvents = async (opts?: {
+    eventQuery?: string;
+    eventEntityType?: string;
+    eventAction?: string;
+    eventActor?: string;
+    eventEntityId?: string;
+    eventSort?: "desc" | "asc";
+  }) => {
+    const nextQuery = opts?.eventQuery ?? eventQuery;
+    const nextEntityType = opts?.eventEntityType ?? eventEntityType;
+    const nextAction = opts?.eventAction ?? eventAction;
+    const nextActor = opts?.eventActor ?? eventActor;
+    const nextEntityId = opts?.eventEntityId ?? eventEntityId;
+    const nextSort = opts?.eventSort ?? eventSort;
+    setEventsLoading(true);
+    try {
+      const data = await fetchAdminEvents({
+        q: nextQuery || undefined,
+        entityType: nextEntityType || undefined,
+        action: nextAction || undefined,
+        actor: nextActor || undefined,
+        entityId: nextEntityId || undefined,
+        sort: nextSort,
+        limit: 300,
+      });
+      setEvents(data);
+    } catch (err) {
+      toast({
+        title: "Failed to load event log",
+        description: err instanceof Error ? err.message : "Backend unreachable",
+        variant: "destructive",
+      });
+    } finally {
+      setEventsLoading(false);
+    }
+  };
 
   const toggleRole = async (id: number, roleId: string, checked: boolean) => {
     const user = users.find((u) => u.id === id);
@@ -78,6 +135,7 @@ const Admin = () => {
           u.id === id ? { ...u, role: updated.role, roles: updated.roles, method_permissions: updated.method_permissions || [] } : u
         )
       );
+      void loadEvents();
     } finally {
       setSavingId(null);
     }
@@ -132,6 +190,7 @@ const Admin = () => {
       setNewFullName("");
       setNewEmail("");
       setNewRole("lab_operator");
+      void loadEvents();
       toast({
         title: "User created",
         description: `Default password: ${created.default_password}`,
@@ -152,6 +211,7 @@ const Admin = () => {
     try {
       await deleteUser(id);
       setUsers((prev) => prev.filter((u) => u.id !== id));
+      void loadEvents();
     } catch (err) {
       toast({
         title: "Failed to delete user",
@@ -208,6 +268,7 @@ const Admin = () => {
         )
       );
       setEmailEditorOpen(false);
+      void loadEvents();
       toast({ title: "Email updated" });
     } catch (err) {
       toast({
@@ -236,6 +297,7 @@ const Admin = () => {
             : u
         )
       );
+      void loadEvents();
     } finally {
       setSavingId(null);
     }
@@ -428,6 +490,112 @@ const Admin = () => {
               ))}
               {users.length === 0 && (
                 <div className="px-4 py-6 text-sm text-muted-foreground">{loading ? "Loading users..." : "No users found."}</div>
+              )}
+            </div>
+          </div>
+          <div className="mt-6 rounded-2xl border border-border/60 bg-card/70">
+            <div className="px-4 py-3 border-b border-border/60">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-foreground">Event log</h3>
+                <span className="text-xs text-muted-foreground">{eventsLoading ? "Loading..." : `${events.length} events`}</span>
+              </div>
+              <div className="mt-3 grid grid-cols-[2fr_repeat(4,minmax(0,1fr))_150px] gap-2">
+                <Input
+                  value={eventQuery}
+                  onChange={(e) => setEventQuery(e.target.value)}
+                  placeholder="Search details, actor, action..."
+                />
+                <select
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={eventEntityType}
+                  onChange={(e) => setEventEntityType(e.target.value)}
+                >
+                  <option value="">All entities</option>
+                  {eventEntityTypes.map((entity) => (
+                    <option key={entity} value={entity}>
+                      {entity}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={eventAction}
+                  onChange={(e) => setEventAction(e.target.value)}
+                >
+                  <option value="">All actions</option>
+                  {eventActions.map((actionName) => (
+                    <option key={actionName} value={actionName}>
+                      {actionName}
+                    </option>
+                  ))}
+                </select>
+                <Input value={eventActor} onChange={(e) => setEventActor(e.target.value)} placeholder="Actor" />
+                <Input value={eventEntityId} onChange={(e) => setEventEntityId(e.target.value)} placeholder="Entity ID" />
+                <select
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={eventSort}
+                  onChange={(e) => setEventSort(e.target.value as "desc" | "asc")}
+                >
+                  <option value="desc">Newest first</option>
+                  <option value="asc">Oldest first</option>
+                </select>
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <Button size="sm" onClick={() => loadEvents()} disabled={eventsLoading}>
+                  Apply filters
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setEventQuery("");
+                    setEventEntityType("");
+                    setEventAction("");
+                    setEventActor("");
+                    setEventEntityId("");
+                    setEventSort("desc");
+                    void loadEvents({
+                      eventQuery: "",
+                      eventEntityType: "",
+                      eventAction: "",
+                      eventActor: "",
+                      eventEntityId: "",
+                      eventSort: "desc",
+                    });
+                  }}
+                  disabled={eventsLoading}
+                >
+                  Reset
+                </Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-[180px_140px_140px_120px_minmax(0,1fr)] gap-3 text-xs uppercase tracking-wide text-muted-foreground px-4 py-2 border-b border-border/60">
+              <div>Timestamp</div>
+              <div>Actor</div>
+              <div>Entity</div>
+              <div>Action</div>
+              <div>Details</div>
+            </div>
+            <div className="max-h-96 overflow-auto divide-y divide-border/60">
+              {events.map((event) => (
+                <div key={event.id} className="grid grid-cols-[180px_140px_140px_120px_minmax(0,1fr)] gap-3 items-start px-4 py-2 text-sm text-foreground">
+                  <div className="text-xs text-muted-foreground">{new Date(event.performed_at).toLocaleString()}</div>
+                  <div className="truncate">{event.performed_by || "System"}</div>
+                  <div className="truncate">
+                    {event.entity_type}:{event.entity_id}
+                  </div>
+                  <div>
+                    <Badge variant="outline" className="text-xs">
+                      {event.action}
+                    </Badge>
+                  </div>
+                  <div className="whitespace-pre-wrap break-words text-muted-foreground">{event.details || "-"}</div>
+                </div>
+              ))}
+              {events.length === 0 && (
+                <div className="px-4 py-6 text-sm text-muted-foreground">
+                  {eventsLoading ? "Loading events..." : "No events found for current filters."}
+                </div>
               )}
             </div>
           </div>

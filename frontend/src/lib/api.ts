@@ -260,3 +260,36 @@ export async function deleteUser(id: number) {
   if (!res.ok) throw new Error(`Failed to delete user (${res.status})`);
   return (await res.json()) as { deleted: boolean };
 }
+
+export type AdminEvent = {
+  id: number;
+  entity_type: string;
+  entity_id: string;
+  action: string;
+  performed_by?: string | null;
+  performed_at: string;
+  details?: string | null;
+};
+
+export async function fetchAdminEvents(params?: {
+  entityType?: string;
+  action?: string;
+  actor?: string;
+  entityId?: string;
+  q?: string;
+  sort?: "asc" | "desc";
+  limit?: number;
+}) {
+  const query = new URLSearchParams();
+  if (params?.entityType) query.set("entity_type", params.entityType);
+  if (params?.action) query.set("action", params.action);
+  if (params?.actor) query.set("actor", params.actor);
+  if (params?.entityId) query.set("entity_id", params.entityId);
+  if (params?.q) query.set("q", params.q);
+  if (params?.sort) query.set("sort", params.sort);
+  if (params?.limit) query.set("limit", String(params.limit));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  const res = await fetch(`/api/admin/events${suffix}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`Failed to load event log (${res.status})`);
+  return (await res.json()) as AdminEvent[];
+}

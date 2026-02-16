@@ -12,12 +12,12 @@ from sqlalchemy.orm import Session
 try:
     from .database import Base, engine, get_db
     from .models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel, UserMethodPermissionModel
-    from .schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserCreate, UserCreateOut, UserUpdate
+    from .schemas import ActionBatchCreate, ActionBatchOut, AuditEventOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserCreate, UserCreateOut, UserUpdate
     from .seed import seed_users
 except ImportError:  # pragma: no cover - fallback for script execution
   from database import Base, engine, get_db  # type: ignore
   from models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel, UserMethodPermissionModel  # type: ignore
-  from schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserCreate, UserCreateOut, UserUpdate  # type: ignore
+  from schemas import ActionBatchCreate, ActionBatchOut, AuditEventOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserCreate, UserCreateOut, UserUpdate  # type: ignore
   from seed import seed_users  # type: ignore
 
 app = FastAPI(title="LabSync backend", version="0.1.0")
@@ -316,6 +316,15 @@ async def create_planned_analysis(payload: PlannedAnalysisCreate, request: Reque
     db.add(row)
   db.commit()
   db.refresh(row)
+  actor = request.headers.get("x-user")
+  log_audit(
+    db,
+    entity_type="planned_analysis",
+    entity_id=str(row.id),
+    action="created",
+    performed_by=actor,
+    details=f"sample={row.sample_id};method={row.analysis_type};assignees={','.join(assignees) if assignees else ''}",
+  )
   return to_planned_out(row, db)
 
 
@@ -328,6 +337,7 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
   if payload.status:
     row.status = AnalysisStatus(payload.status)
   if payload.assigned_to is not None:
+    prev_assignees = get_assignees(db, row.id, row.assigned_to)
     actor_identity = (request.headers.get("x-user") or "").strip()
     actor_user = find_user_by_identity(db, actor_identity)
     is_admin = is_admin_from_headers(request) or (actor_user is not None and has_role(actor_user, "admin"))
@@ -379,6 +389,29 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
   if payload.status:
     actor = request.headers.get("x-user")
     log_audit(db, entity_type="planned_analysis", entity_id=str(analysis_id), action="status_change", performed_by=actor, details=f"{old_status}->{payload.status}")
+  if payload.assigned_to is not None:
+    actor = request.headers.get("x-user")
+    next_assignees = assignees
+    added = [name for name in next_assignees if name not in prev_assignees]
+    removed = [name for name in prev_assignees if name not in next_assignees]
+    for target in added:
+      log_audit(
+        db,
+        entity_type="planned_analysis",
+        entity_id=str(analysis_id),
+        action="operator_assigned",
+        performed_by=actor,
+        details=f"sample={row.sample_id};method={row.analysis_type};target={target}",
+      )
+    for target in removed:
+      log_audit(
+        db,
+        entity_type="planned_analysis",
+        entity_id=str(analysis_id),
+        action="operator_unassigned",
+        performed_by=actor,
+        details=f"sample={row.sample_id};method={row.analysis_type};target={target}",
+      )
   return to_planned_out(row, db)
 
 
@@ -545,6 +578,59 @@ def find_user_by_identity(db: Session, identity: str | None) -> UserModel | None
   return None
 
 
+@app.get("/admin/events", response_model=list[AuditEventOut])
+async def list_admin_events(
+  request: Request,
+  db: Session = Depends(get_db),
+  entity_type: str | None = None,
+  action: str | None = None,
+  actor: str | None = None,
+  entity_id: str | None = None,
+  q: str | None = None,
+  sort: str = "desc",
+  limit: int = 200,
+):
+  if not is_admin_from_headers(request):
+    raise HTTPException(status_code=403, detail="Admin only")
+  rows = db.execute(select(AuditLogModel)).scalars().all()
+  events = [
+    AuditEventOut(
+      id=row.id,
+      entity_type=row.entity_type,
+      entity_id=row.entity_id,
+      action=row.action,
+      performed_by=row.performed_by,
+      performed_at=row.performed_at,
+      details=row.details,
+    )
+    for row in rows
+  ]
+  if entity_type:
+    events = [e for e in events if e.entity_type == entity_type]
+  if action:
+    events = [e for e in events if e.action == action]
+  if actor:
+    key = actor.strip().lower()
+    events = [e for e in events if (e.performed_by or "").strip().lower().find(key) >= 0]
+  if entity_id:
+    key = entity_id.strip()
+    events = [e for e in events if key in e.entity_id]
+  if q:
+    key = q.strip().lower()
+    events = [
+      e
+      for e in events
+      if key in e.entity_type.lower()
+      or key in e.action.lower()
+      or key in (e.entity_id or "").lower()
+      or key in (e.performed_by or "").lower()
+      or key in (e.details or "").lower()
+    ]
+  reverse = sort != "asc"
+  events = sorted(events, key=lambda e: e.performed_at or "", reverse=reverse)
+  return events[: max(1, min(limit, 1000))]
+
+
 @app.get("/admin/users", response_model=list[UserOut])
 async def list_users(db: Session = Depends(get_db)):
   rows = db.execute(select(UserModel)).scalars().all()
@@ -592,6 +678,15 @@ async def create_user(payload: UserCreate, request: Request, db: Session = Depen
     method_permissions = method_permissions or DEFAULT_METHOD_PERMISSIONS
   set_user_method_permissions(db, row.id, method_permissions)
   db.commit()
+  actor = request.headers.get("x-user")
+  log_audit(
+    db,
+    entity_type="user",
+    entity_id=str(row.id),
+    action="created",
+    performed_by=actor,
+    details=f"username={row.username};roles={row.roles};methods={','.join(get_user_method_permissions(db, row.id))}",
+  )
   return UserCreateOut(
     id=row.id,
     username=row.username,
@@ -632,6 +727,15 @@ async def update_user(user_id: int, payload: UserUpdate, request: Request, db: S
   db.add(row)
   db.commit()
   db.refresh(row)
+  actor = request.headers.get("x-user")
+  log_audit(
+    db,
+    entity_type="user",
+    entity_id=str(row.id),
+    action="updated",
+    performed_by=actor,
+    details=f"username={row.username};roles={row.roles};methods={','.join(get_user_method_permissions(db, row.id))}",
+  )
   return UserOut(
     id=row.id,
     username=row.username,
@@ -644,10 +748,13 @@ async def update_user(user_id: int, payload: UserUpdate, request: Request, db: S
 
 
 @app.delete("/admin/users/{user_id}")
-async def delete_user(user_id: int, db: Session = Depends(get_db)):
+async def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)):
   row = db.get(UserModel, user_id)
   if not row:
     raise HTTPException(status_code=404, detail="User not found")
+  actor = request.headers.get("x-user")
+  details = f"username={row.username};roles={row.roles}"
   db.delete(row)
   db.commit()
+  log_audit(db, entity_type="user", entity_id=str(user_id), action="deleted", performed_by=actor, details=details)
   return {"deleted": True}

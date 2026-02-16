@@ -97,3 +97,13 @@ class UserUpdate(BaseModel):
     role: str | None = Field(default=None, pattern="^(warehouse_worker|lab_operator|action_supervision|admin)$")
     roles: list[str] | None = None
     method_permissions: list[str] | None = None
+
+
+class AuditEventOut(BaseModel):
+    id: int
+    entity_type: str
+    entity_id: str
+    action: str
+    performed_by: str | None = None
+    performed_at: str
+    details: str | None = None

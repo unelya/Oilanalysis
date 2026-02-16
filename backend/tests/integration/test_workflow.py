@@ -207,3 +207,25 @@ def test_lab_operator_self_assign_keeps_existing_assignees(client):
     )
     assert res.status_code == 200
     assert sorted(res.json()["assigned_to"]) == ["Chick Two", "Egg Two"]
+
+
+def test_admin_event_log_listing(client):
+    sample_payload = {
+        "sample_id": "S-205",
+        "well_id": "W-24",
+        "horizon": "H6",
+        "sampling_date": "2024-01-01",
+        "status": "new",
+        "storage_location": "Shelf F",
+    }
+    assert client.post("/samples", json=sample_payload).status_code == 201
+    assert client.patch("/samples/S-205", json={"status": "progress"}, headers={"x-user": "Admin User"}).status_code == 200
+
+    forbidden = client.get("/admin/events")
+    assert forbidden.status_code == 403
+
+    res = client.get("/admin/events", headers={"x-role": "admin"})
+    assert res.status_code == 200
+    data = res.json()
+    assert isinstance(data, list)
+    assert any(item["entity_type"] == "sample" and item["entity_id"] == "S-205" for item in data)
