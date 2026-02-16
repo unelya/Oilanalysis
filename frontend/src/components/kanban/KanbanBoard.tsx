@@ -39,6 +39,7 @@ const ACTION_UPLOADED_READ_KEY = 'labsync-action-uploaded-read';
 const ACTION_CONFLICT_READ_KEY = 'labsync-action-conflict-read';
 const ADMIN_ISSUES_READ_KEY = 'labsync-admin-issues-read';
 const ADMIN_NEEDS_READ_KEY = 'labsync-admin-needs-read';
+const ASSIGNMENT_NOTIFICATIONS_KEY = 'labsync-assignment-notifications';
 const CARD_SORT_KEY = 'labsync-card-sort';
 const SHOW_LAB_COMPLETED_MOCK = false;
 
@@ -79,6 +80,32 @@ const isUserAssignedToMethod = (
   userName?: string,
 ) => {
   return isUserAssigned(methodAssignees, userName);
+};
+
+type AssignmentNotification = {
+  id: string;
+  sampleId: string;
+  method: string;
+  action: 'assigned' | 'unassigned';
+  recipient: string;
+  actor?: string;
+  createdAt: string;
+};
+
+const readAssignmentNotifications = (): AssignmentNotification[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(ASSIGNMENT_NOTIFICATIONS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeAssignmentNotifications = (items: AssignmentNotification[]) => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(ASSIGNMENT_NOTIFICATIONS_KEY, JSON.stringify(items));
 };
 
 export function KanbanBoard({
@@ -163,6 +190,11 @@ export function KanbanBoard({
   const [deletePrompt, setDeletePrompt] = useState<{ open: boolean; card: KanbanCard | null }>({ open: false, card: null });
   const [deleteReason, setDeleteReason] = useState('');
   const isAdminUser = user?.role === 'admin';
+  const currentUserName = (user?.fullName || '').trim();
+  const currentUserKey = currentUserName.toLowerCase();
+  const assignmentReadKey = currentUserKey ? `labsync-assignment-read:${currentUserKey}` : '';
+  const [assignmentReadIds, setAssignmentReadIds] = useState<string[]>([]);
+  const [assignmentVersion, setAssignmentVersion] = useState(0);
   const [issuePrompt, setIssuePrompt] = useState<{ open: boolean; card: KanbanCard | null }>({ open: false, card: null });
   const [issueReason, setIssueReason] = useState('');
   const [labOperators, setLabOperators] = useState<{ id: number; name: string; methodPermissions: string[] }[]>([]);
@@ -507,6 +539,50 @@ export function KanbanBoard({
     };
     load();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!assignmentReadKey) {
+      setAssignmentReadIds([]);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(assignmentReadKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      setAssignmentReadIds(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setAssignmentReadIds([]);
+    }
+  }, [assignmentReadKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!assignmentReadKey) return;
+    localStorage.setItem(assignmentReadKey, JSON.stringify(assignmentReadIds));
+  }, [assignmentReadIds, assignmentReadKey]);
+
+  const pushAssignmentNotifications = useCallback(
+    (entries: { sampleId: string; method: string; action: 'assigned' | 'unassigned'; recipient: string }[]) => {
+      if (typeof window === 'undefined' || entries.length === 0) return;
+      const existing = readAssignmentNotifications();
+      const now = Date.now();
+      const next = [
+        ...existing,
+        ...entries.map((entry, idx) => ({
+          id: `assign-${now}-${idx}-${Math.random().toString(16).slice(2)}`,
+          sampleId: entry.sampleId,
+          method: entry.method,
+          action: entry.action,
+          recipient: entry.recipient,
+          actor: currentUserName || undefined,
+          createdAt: new Date().toISOString(),
+        })),
+      ];
+      writeAssignmentNotifications(next.slice(-500));
+      setAssignmentVersion((prev) => prev + 1);
+    },
+    [currentUserName],
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1327,10 +1403,26 @@ export function KanbanBoard({
     prevAdminNeedsRef.current = currentNeeds;
   }, [cards, plannedAnalyses, role, adminStoredByCard, deletedByCard, labStatusOverrides, labNeedsAttentionReasons]);
 
+  const assignmentNotifications = useMemo(() => {
+    if (!currentUserKey) return [] as { id: string; title: string; description?: string }[];
+    const unread = readAssignmentNotifications()
+      .filter((note) => note.recipient?.trim().toLowerCase() === currentUserKey)
+      .filter((note) => !assignmentReadIds.includes(note.id))
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    return unread.map((note) => ({
+      id: `assign:${note.id}:${note.sampleId}`,
+      title: note.action === 'assigned' ? 'Method assignment' : 'Method unassignment',
+      description:
+        note.action === 'assigned'
+          ? `${note.method} on ${note.sampleId} assigned to you${note.actor ? ` by ${note.actor}` : ''}.`
+          : `${note.method} on ${note.sampleId} unassigned from you${note.actor ? ` by ${note.actor}` : ''}.`,
+    }));
+  }, [assignmentReadIds, assignmentVersion, currentUserKey]);
+
   useEffect(() => {
     if (!onNotificationsChange) return;
     if (role !== 'warehouse_worker' && role !== 'lab_operator' && role !== 'action_supervision' && role !== 'admin') {
-      onNotificationsChange([]);
+      onNotificationsChange(assignmentNotifications);
       return;
     }
     const plannedCards = columns.find((col) => col.id === 'new')?.cards ?? [];
@@ -1350,7 +1442,7 @@ export function KanbanBoard({
           title: 'Returned for analysis',
           description: `${sampleId} was returned to Warehouse by Admin.`,
         }));
-      onNotificationsChange([...plannedNotes, ...returnedNotes]);
+      onNotificationsChange([...plannedNotes, ...returnedNotes, ...assignmentNotifications]);
       return;
     }
     if (role === 'action_supervision') {
@@ -1370,7 +1462,7 @@ export function KanbanBoard({
           title: 'Conflict detected',
           description: `${card.sampleId} is in Conflicts.`,
         }));
-      onNotificationsChange([...uploadedNotes, ...conflictNotes]);
+      onNotificationsChange([...uploadedNotes, ...conflictNotes, ...assignmentNotifications]);
       return;
     }
     if (role === 'admin') {
@@ -1411,7 +1503,7 @@ export function KanbanBoard({
         title: 'Needs attention',
         description: `${sampleId} is in Needs attention.`,
       }));
-      onNotificationsChange([...issueNotes, ...needsNotes]);
+      onNotificationsChange([...issueNotes, ...needsNotes, ...assignmentNotifications]);
       return;
     }
     const plannedNotes = plannedCards
@@ -1435,7 +1527,7 @@ export function KanbanBoard({
         title: 'Returned for analysis',
         description: `${sampleId} was returned to Lab by Admin.`,
       }));
-    onNotificationsChange([...plannedNotes, ...returnedNotes]);
+    onNotificationsChange([...plannedNotes, ...returnedNotes, ...assignmentNotifications]);
   }, [
     columns,
     createdSampleIds,
@@ -1453,13 +1545,20 @@ export function KanbanBoard({
     actionConflictRead,
     adminIssuesRead,
     adminNeedsRead,
+    assignmentNotifications,
   ]);
 
   useEffect(() => {
     if (role !== 'warehouse_worker' && role !== 'lab_operator' && role !== 'action_supervision' && role !== 'admin') return;
     if (!notificationClickId) return;
-    const [kind, sampleId] = notificationClickId.split(':');
+    const parts = notificationClickId.split(':');
+    const kind = parts[0];
+    const eventId = kind === 'assign' ? parts[1] : undefined;
+    const sampleId = kind === 'assign' ? parts.slice(2).join(':') : parts[1];
     if (!sampleId) return;
+    if (kind === 'assign' && eventId) {
+      setAssignmentReadIds((prev) => (prev.includes(eventId) ? prev : [...prev, eventId]));
+    }
     if (role === 'warehouse_worker') {
       if (kind === 'planned') {
         setWarehousePlannedRead((prev) => ({ ...prev, [sampleId]: true }));
@@ -1508,6 +1607,15 @@ export function KanbanBoard({
   useEffect(() => {
     if (role !== 'warehouse_worker' && role !== 'lab_operator' && role !== 'action_supervision' && role !== 'admin') return;
     if (!markAllReadToken) return;
+    if (currentUserKey) {
+      const unreadIds = readAssignmentNotifications()
+        .filter((note) => note.recipient?.trim().toLowerCase() === currentUserKey)
+        .map((note) => note.id)
+        .filter((id) => !assignmentReadIds.includes(id));
+      if (unreadIds.length > 0) {
+        setAssignmentReadIds((prev) => Array.from(new Set([...prev, ...unreadIds])));
+      }
+    }
     const plannedCards = columns.find((col) => col.id === 'new')?.cards ?? [];
     if (plannedCards.length > 0) {
       if (role === 'warehouse_worker') {
@@ -1632,7 +1740,7 @@ export function KanbanBoard({
         });
       }
     }
-  }, [columns, markAllReadToken, role, warehouseReturnHighlights, labReturnHighlights, adminReturnNotes]);
+  }, [assignmentReadIds, columns, currentUserKey, markAllReadToken, role, warehouseReturnHighlights, labReturnHighlights, adminReturnNotes]);
 
   const statusBadgeMode =
     role === 'lab_operator'
@@ -3218,6 +3326,7 @@ export function KanbanBoard({
     const currentUser = (user?.fullName || user?.username || '').trim();
     const requested = (updates.assigned_to || '').trim();
     const existing = plannedAnalyses.find((pa) => pa.id === analysisId);
+    const previousAssignees = normalizeAssignees(existing?.assignedTo);
     if (role === 'lab_operator' && !isAdminUser) {
       if (!currentUser) {
         toast({ title: "User not identified", description: "Sign in again to assign methods.", variant: "destructive" });
@@ -3247,6 +3356,25 @@ export function KanbanBoard({
         undefined as any,
         role === 'lab_operator' && !isAdminUser ? (nextAssigned as string[] | undefined) : updates.assigned_to,
       );
+      const nextAssignees = normalizeAssignees(nextAssigned as string[] | string | null | undefined);
+      const added = nextAssignees.filter((name) => !previousAssignees.includes(name));
+      const removed = previousAssignees.filter((name) => !nextAssignees.includes(name));
+      if (existing) {
+        pushAssignmentNotifications([
+          ...added.map((recipient) => ({
+            sampleId: existing.sampleId,
+            method: existing.analysisType,
+            action: 'assigned' as const,
+            recipient,
+          })),
+          ...removed.map((recipient) => ({
+            sampleId: existing.sampleId,
+            method: existing.analysisType,
+            action: 'unassigned' as const,
+            recipient,
+          })),
+        ]);
+      }
     } catch (err) {
       toast({
         title: "Failed to update analysis",
@@ -3627,6 +3755,7 @@ export function KanbanBoard({
               }
             }
             const isUnassigned = operator === '__unassigned';
+            const previousAssignees = normalizeAssignees(target.assignedTo);
             const nextAssignees = isUnassigned
               ? []
               : role === 'lab_operator' && !isAdminUser
@@ -3646,6 +3775,22 @@ export function KanbanBoard({
                 title: isUnassigned ? "Operator cleared" : "Operator assigned",
                 description: isUnassigned ? `${method} cleared` : `${method} → ${operator}`,
               });
+              const added = nextAssignees.filter((name) => !previousAssignees.includes(name));
+              const removed = previousAssignees.filter((name) => !nextAssignees.includes(name));
+              pushAssignmentNotifications([
+                ...added.map((recipient) => ({
+                  sampleId: target.sampleId,
+                  method: target.analysisType,
+                  action: 'assigned' as const,
+                  recipient,
+                })),
+                ...removed.map((recipient) => ({
+                  sampleId: target.sampleId,
+                  method: target.analysisType,
+                  action: 'unassigned' as const,
+                  recipient,
+                })),
+              ]);
             }).catch((err) => {
               toast({ title: "Failed to assign", description: err instanceof Error ? err.message : "Backend unreachable", variant: "destructive" });
             });
