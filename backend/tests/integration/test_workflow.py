@@ -65,3 +65,55 @@ def test_admin_user_creation_requires_admin(client):
     assert data["username"] == "qa.user"
     assert data["email"] == "qa.user@example.com"
     assert data["role"] == "lab_operator"
+
+
+def test_lab_operator_can_assign_only_self(client):
+    sample_payload = {
+        "sample_id": "S-201",
+        "well_id": "W-20",
+        "horizon": "H2",
+        "sampling_date": "2024-01-01",
+        "status": "new",
+        "storage_location": "Shelf B",
+    }
+    assert client.post("/samples", json=sample_payload).status_code == 201
+    analysis = client.post("/planned-analyses", json={"sample_id": "S-201", "analysis_type": "SARA"}).json()
+
+    res = client.patch(
+        f"/planned-analyses/{analysis['id']}",
+        json={"assigned_to": ["Admin User"]},
+        headers={"x-role": "lab_operator", "x-user": "Lab Operator"},
+    )
+    assert res.status_code == 403
+
+    res = client.patch(
+        f"/planned-analyses/{analysis['id']}",
+        json={"assigned_to": ["Lab Operator"]},
+        headers={"x-role": "lab_operator", "x-user": "Lab Operator"},
+    )
+    assert res.status_code == 200
+    assert res.json()["assigned_to"] == ["Lab Operator"]
+
+
+def test_admin_can_assign_any_lab_operator(client):
+    create_user_payload = {"username": "egg", "full_name": "Egg", "email": "egg@example.com", "role": "lab_operator"}
+    assert client.post("/admin/users", json=create_user_payload, headers={"x-role": "admin"}).status_code == 201
+
+    sample_payload = {
+        "sample_id": "S-202",
+        "well_id": "W-21",
+        "horizon": "H3",
+        "sampling_date": "2024-01-01",
+        "status": "new",
+        "storage_location": "Shelf C",
+    }
+    assert client.post("/samples", json=sample_payload).status_code == 201
+    analysis = client.post("/planned-analyses", json={"sample_id": "S-202", "analysis_type": "IR"}).json()
+
+    res = client.patch(
+        f"/planned-analyses/{analysis['id']}",
+        json={"assigned_to": ["Egg"]},
+        headers={"x-role": "admin", "x-user": "Admin User"},
+    )
+    assert res.status_code == 200
+    assert res.json()["assigned_to"] == ["Egg"]

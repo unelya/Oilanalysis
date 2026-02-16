@@ -299,7 +299,19 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
   if payload.status:
     row.status = AnalysisStatus(payload.status)
   if payload.assigned_to is not None:
+    actor_identity = (request.headers.get("x-user") or "").strip()
+    actor_user = find_user_by_identity(db, actor_identity)
+    is_admin = is_admin_from_headers(request) or (actor_user is not None and has_role(actor_user, "admin"))
     assignees = normalize_assignees(payload.assigned_to)
+    if not is_admin:
+      if actor_user is None or not has_role(actor_user, "lab_operator"):
+        raise HTTPException(status_code=403, detail="Only lab operator can self-assign")
+      actor_names = {
+        (actor_user.username or "").strip().lower(),
+        (actor_user.full_name or "").strip().lower(),
+      }
+      if len(assignees) != 1 or assignees[0].strip().lower() not in actor_names:
+        raise HTTPException(status_code=403, detail="Lab operator can assign only themselves")
     db.execute(
       delete(PlannedAnalysisAssigneeModel).where(
         PlannedAnalysisAssigneeModel.analysis_id == row.id
@@ -462,6 +474,25 @@ def parse_roles(role_str: str | None) -> list[str]:
 def serialize_roles(roles: list[str]) -> str:
   cleaned = [r for r in roles if r]
   return ",".join(cleaned) if cleaned else "lab_operator"
+
+
+def has_role(user: UserModel, role_name: str) -> bool:
+  roles = parse_roles(user.roles) or [user.role]
+  normalized = {r.strip().lower() for r in roles if r}
+  return role_name.strip().lower() in normalized
+
+
+def find_user_by_identity(db: Session, identity: str | None) -> UserModel | None:
+  value = (identity or "").strip().lower()
+  if not value:
+    return None
+  rows = db.execute(select(UserModel)).scalars().all()
+  for user in rows:
+    if (user.username or "").strip().lower() == value:
+      return user
+    if (user.full_name or "").strip().lower() == value:
+      return user
+  return None
 
 
 @app.get("/admin/users", response_model=list[UserOut])

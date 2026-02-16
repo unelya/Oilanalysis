@@ -148,6 +148,10 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
   const [commentAuthor, setCommentAuthor] = useState(currentUserName ?? '');
   const [storageParts, setStorageParts] = useState(() => parseStorageLocation(card.storageLocation || ''));
   const isAdmin = Boolean(onPlanAnalysis);
+  const selfOperatorName = (currentUserName || '').trim();
+  const assignableOperators = role === 'lab_operator'
+    ? (selfOperatorName ? [{ id: -1, name: selfOperatorName }] : [])
+    : operatorOptions;
 
   useEffect(() => {
     if (currentUserName) {
@@ -576,8 +580,8 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                       <SelectValue placeholder="Assign to lab operator" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__unassigned">Unassigned</SelectItem>
-                      {operatorOptions.map((op) => (
+                      {role !== 'lab_operator' && <SelectItem value="__unassigned">Unassigned</SelectItem>}
+                      {assignableOperators.map((op) => (
                         <SelectItem key={op.id} value={op.name}>
                           {op.name}
                         </SelectItem>
@@ -595,6 +599,10 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                     }
                     if (!assignOperator) {
                       setAssignError('Select an operator to assign');
+                      return;
+                    }
+                    if (role === 'lab_operator' && selfOperatorName && assignOperator.trim().toLowerCase() !== selfOperatorName.toLowerCase()) {
+                      setAssignError('Lab operator can assign only themselves');
                       return;
                     }
                     onAssignOperator?.(assignMethod, assignOperator);

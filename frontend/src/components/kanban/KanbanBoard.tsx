@@ -48,6 +48,7 @@ const roleCopy: Record<Role, string> = {
   action_supervision: 'Action supervision view',
   admin: 'Admin view',
 };
+const normalizeRoleKey = (value?: string | null) => (value || '').trim().toLowerCase().replace(/\s+/g, '_');
 
 const normalizeAssignees = (value?: string[] | string | null) => {
   if (!value) return [];
@@ -490,7 +491,11 @@ export function KanbanBoard({
         setConflicts(conflictList);
         setLabOperators(
           users
-            .filter((u: any) => (u.roles || []).includes('lab_operator') || u.role === 'lab_operator')
+            .filter((u: any) => {
+              const roles = Array.isArray(u.roles) ? u.roles.map((r: string) => normalizeRoleKey(r)) : [];
+              const primary = normalizeRoleKey(u.role);
+              return roles.includes('lab_operator') || primary === 'lab_operator';
+            })
             .map((u: any) => ({ id: u.id, name: u.full_name || u.username })),
         );
         setFilterMethodWhitelist(filterMethods);
@@ -3216,15 +3221,25 @@ export function KanbanBoard({
   };
 
   const handleAnalysisFieldUpdate = async (analysisId: number, updates: { assigned_to?: string }) => {
+    const currentUser = (user?.fullName || user?.username || '').trim();
+    const requested = (updates.assigned_to || '').trim();
+    if (role === 'lab_operator') {
+      if (!currentUser) {
+        toast({ title: "User not identified", description: "Sign in again to assign methods.", variant: "destructive" });
+        return;
+      }
+      if (!requested || requested.toLowerCase() !== currentUser.toLowerCase()) {
+        toast({ title: "Assignment restricted", description: "Lab operator can assign only themselves.", variant: "destructive" });
+        return;
+      }
+    }
     setPlannedAnalyses((prev) =>
       prev.map((pa) =>
-        pa.id === analysisId
-          ? { ...pa, assignedTo: appendAssignee(pa.assignedTo, updates.assigned_to) ?? pa.assignedTo }
-          : pa,
+        pa.id === analysisId ? { ...pa, assignedTo: requested ? [requested] : pa.assignedTo } : pa,
       ),
     );
     if (selectedCard?.id === analysisId.toString()) {
-      setSelectedCard((prev) => (prev ? { ...prev, assignedTo: updates.assigned_to ?? prev.assignedTo } : prev));
+      setSelectedCard((prev) => (prev ? { ...prev, assignedTo: requested || prev.assignedTo } : prev));
     }
     try {
       await updatePlannedAnalysis(analysisId, undefined as any, updates.assigned_to);
@@ -3595,8 +3610,20 @@ export function KanbanBoard({
               toast({ title: "Method not found", description: "This method is not available on the card.", variant: "destructive" });
               return;
             }
+            const currentUser = (user?.fullName || user?.username || '').trim();
+            const requestedOperator = (operator || '').trim();
+            if (role === 'lab_operator') {
+              if (!currentUser) {
+                toast({ title: "User not identified", description: "Sign in again to assign methods.", variant: "destructive" });
+                return;
+              }
+              if (!requestedOperator || requestedOperator.toLowerCase() !== currentUser.toLowerCase()) {
+                toast({ title: "Assignment restricted", description: "Lab operator can assign only themselves.", variant: "destructive" });
+                return;
+              }
+            }
             const isUnassigned = operator === '__unassigned';
-            const nextAssignees = isUnassigned ? [] : appendAssignee(target.assignedTo, operator) ?? [];
+            const nextAssignees = isUnassigned ? [] : [requestedOperator];
             updatePlannedAnalysis(target.id, target.status, nextAssignees).then(() => {
               setPlannedAnalyses((prev) =>
                 prev.map((pa) => {
