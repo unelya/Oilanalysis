@@ -63,16 +63,6 @@ const normalizeAssignees = (value?: string[] | string | null) => {
 
 const formatAssignees = (value?: string[] | string | null) => normalizeAssignees(value).join(' ');
 
-const appendAssignee = (current?: string[] | string | null, assignee?: string) => {
-  const list = normalizeAssignees(current);
-  const trimmed = (assignee ?? '').trim();
-  if (!trimmed) return list.length > 0 ? list : undefined;
-  if (!list.includes(trimmed)) {
-    list.push(trimmed);
-  }
-  return list;
-};
-
 const isUserAssigned = (assignees?: string[] | string | null, userName?: string) => {
   const current = (userName ?? '').trim().toLowerCase();
   if (!current) return false;
@@ -175,7 +165,7 @@ export function KanbanBoard({
   const isAdminUser = user?.role === 'admin';
   const [issuePrompt, setIssuePrompt] = useState<{ open: boolean; card: KanbanCard | null }>({ open: false, card: null });
   const [issueReason, setIssueReason] = useState('');
-  const [labOperators, setLabOperators] = useState<{ id: number; name: string }[]>([]);
+  const [labOperators, setLabOperators] = useState<{ id: number; name: string; methodPermissions: string[] }[]>([]);
   const [commentsByCard, setCommentsByCard] = useState<Record<string, CommentThread[]>>(() => {
     if (typeof window === 'undefined') return {};
     try {
@@ -496,7 +486,11 @@ export function KanbanBoard({
               const primary = normalizeRoleKey(u.role);
               return roles.includes('lab_operator') || primary === 'lab_operator';
             })
-            .map((u: any) => ({ id: u.id, name: u.full_name || u.username })),
+            .map((u: any) => ({
+              id: u.id,
+              name: u.full_name || u.username,
+              methodPermissions: Array.isArray(u.method_permissions) ? u.method_permissions : [],
+            })),
         );
         setFilterMethodWhitelist(filterMethods);
       } catch (err) {
@@ -2808,7 +2802,7 @@ export function KanbanBoard({
           toast({ title: "Method already exists", description: "Select a lab operator to assign if needed.", variant: "default" });
           return;
         }
-        const nextAssignees = isUnassigned ? [] : appendAssignee(existing.assignedTo, assignee) ?? [];
+        const nextAssignees = isUnassigned ? [] : assignee ? [assignee] : [];
         await updatePlannedAnalysis(existing.id, existing.status, nextAssignees);
         setPlannedAnalyses((prev) =>
           prev.map((pa) => {
@@ -3223,7 +3217,7 @@ export function KanbanBoard({
   const handleAnalysisFieldUpdate = async (analysisId: number, updates: { assigned_to?: string }) => {
     const currentUser = (user?.fullName || user?.username || '').trim();
     const requested = (updates.assigned_to || '').trim();
-    if (role === 'lab_operator') {
+    if (role === 'lab_operator' && !isAdminUser) {
       if (!currentUser) {
         toast({ title: "User not identified", description: "Sign in again to assign methods.", variant: "destructive" });
         return;
@@ -3612,7 +3606,7 @@ export function KanbanBoard({
             }
             const currentUser = (user?.fullName || user?.username || '').trim();
             const requestedOperator = (operator || '').trim();
-            if (role === 'lab_operator') {
+            if (role === 'lab_operator' && !isAdminUser) {
               if (!currentUser) {
                 toast({ title: "User not identified", description: "Sign in again to assign methods.", variant: "destructive" });
                 return;

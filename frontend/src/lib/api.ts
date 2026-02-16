@@ -214,10 +214,10 @@ export async function resolveConflict(id: number, note?: string) {
 export async function fetchUsers() {
   const res = await fetch("/api/admin/users");
   if (!res.ok) throw new Error(`Failed to load users (${res.status})`);
-  return (await res.json()) as { id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[] }[];
+  return (await res.json()) as { id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[]; method_permissions: string[] }[];
 }
 
-export async function createUser(payload: { username: string; fullName: string; email: string; role?: string; roles?: string[] }) {
+export async function createUser(payload: { username: string; fullName: string; email: string; role?: string; roles?: string[]; methodPermissions?: string[] }) {
   const res = await fetch("/api/admin/users", {
     method: "POST",
     headers: authHeaders(),
@@ -227,24 +227,29 @@ export async function createUser(payload: { username: string; fullName: string; 
       email: payload.email,
       role: payload.role,
       roles: payload.roles,
+      method_permissions: payload.methodPermissions,
     }),
   });
   if (!res.ok) throw new Error(`Failed to create user (${res.status})`);
-  return (await res.json()) as { id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[]; default_password: string };
+  return (await res.json()) as { id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[]; method_permissions: string[]; default_password: string };
 }
 
-export async function updateUser(id: number, payload: { roles?: string[]; email?: string }) {
+export async function updateUser(id: number, payload: { roles?: string[]; email?: string; method_permissions?: string[] }) {
   const res = await fetch(`/api/admin/users/${id}`, {
     method: "PATCH",
     headers: authHeaders(),
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`Failed to update user (${res.status})`);
-  return (await res.json()) as { id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[] };
+  return (await res.json()) as { id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[]; method_permissions: string[] };
 }
 
 export async function updateUserRole(id: number, roles: string[]) {
   return updateUser(id, { roles });
+}
+
+export async function updateUserMethodPermissions(id: number, methodPermissions: string[]) {
+  return updateUser(id, { method_permissions: methodPermissions });
 }
 
 export async function deleteUser(id: number) {

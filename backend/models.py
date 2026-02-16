@@ -97,6 +97,15 @@ class UserModel(Base):
     roles: Mapped[str] = mapped_column(String, nullable=False, default="lab_operator")
 
 
+class UserMethodPermissionModel(Base):
+    __tablename__ = "user_method_permissions"
+    __table_args__ = (UniqueConstraint("user_id", "method_name", name="uq_user_method_permission"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    method_name: Mapped[str] = mapped_column(String, nullable=False)
+
+
 class FilterMethodModel(Base):
     __tablename__ = "filter_methods"
 

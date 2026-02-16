@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { createUser, deleteUser, fetchUsers, updateUser, updateUserRole } from "@/lib/api";
+import { createUser, deleteUser, fetchUsers, updateUser, updateUserMethodPermissions, updateUserRole } from "@/lib/api";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,11 +29,12 @@ const roles = [
   { id: "action_supervision", label: "Action Supervision" },
   { id: "admin", label: "Admin" },
 ];
+const methodOptions = ["SARA", "IR", "Mass Spectrometry", "Viscosity"];
 
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 const Admin = () => {
-  const [users, setUsers] = useState<{ id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[] }[]>([]);
+  const [users, setUsers] = useState<{ id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[]; method_permissions: string[] }[]>([]);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
@@ -72,7 +73,11 @@ const Admin = () => {
     setSavingId(id);
     try {
       const updated = await updateUserRole(id, nextRoles);
-      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role: updated.role, roles: updated.roles } : u)));
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === id ? { ...u, role: updated.role, roles: updated.roles, method_permissions: updated.method_permissions || [] } : u
+        )
+      );
     } finally {
       setSavingId(null);
     }
@@ -120,6 +125,7 @@ const Admin = () => {
           email: created.email,
           role: created.role,
           roles: created.roles,
+          method_permissions: created.method_permissions || [],
         },
       ]);
       setNewUsername("");
@@ -190,7 +196,15 @@ const Admin = () => {
       const updated = await updateUser(editingUser.id, { email: nextEmail });
       setUsers((prev) =>
         prev.map((u) =>
-          u.id === editingUser.id ? { ...u, email: updated.email, role: updated.role, roles: updated.roles } : u
+          u.id === editingUser.id
+            ? {
+                ...u,
+                email: updated.email,
+                role: updated.role,
+                roles: updated.roles,
+                method_permissions: updated.method_permissions || u.method_permissions,
+              }
+            : u
         )
       );
       setEmailEditorOpen(false);
@@ -201,6 +215,27 @@ const Admin = () => {
         description: err instanceof Error ? err.message : "Backend unreachable",
         variant: "destructive",
       });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const toggleMethodPermission = async (id: number, methodName: string, checked: boolean) => {
+    const user = users.find((u) => u.id === id);
+    if (!user) return;
+    const nextMethods = checked
+      ? Array.from(new Set([...(user.method_permissions || []), methodName]))
+      : (user.method_permissions || []).filter((m) => m !== methodName);
+    setSavingId(id);
+    try {
+      const updated = await updateUserMethodPermissions(id, nextMethods);
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === id
+            ? { ...u, role: updated.role, roles: updated.roles, method_permissions: updated.method_permissions || [] }
+            : u
+        )
+      );
     } finally {
       setSavingId(null);
     }
@@ -329,6 +364,54 @@ const Admin = () => {
                           </Command>
                         </PopoverContent>
                       </Popover>
+                      {user.roles.includes("lab_operator") && (
+                        <>
+                          <div className="flex flex-wrap gap-1">
+                            {(user.method_permissions || []).map((m) => (
+                              <Badge key={m} variant="outline" className="text-xs">
+                                {m}
+                              </Badge>
+                            ))}
+                            {(user.method_permissions || []).length === 0 && (
+                              <span className="text-xs text-muted-foreground">No method permissions</span>
+                            )}
+                          </div>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" size="sm" className="w-full justify-between">
+                                <span>Method permissions</span>
+                                <ChevronsUpDown className="h-4 w-4 opacity-60" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-72 p-0" align="start">
+                              <Command>
+                                <CommandEmpty>No methods found.</CommandEmpty>
+                                <CommandGroup>
+                                  {methodOptions.map((methodName) => {
+                                    const selected = (user.method_permissions || []).includes(methodName);
+                                    return (
+                                      <CommandItem
+                                        key={methodName}
+                                        onSelect={() => toggleMethodPermission(user.id, methodName, !selected)}
+                                        className="flex items-center gap-2"
+                                      >
+                                        <div
+                                          className={`flex h-4 w-4 items-center justify-center rounded border ${
+                                            selected ? "bg-primary text-primary-foreground border-primary" : "border-border"
+                                          }`}
+                                        >
+                                          {selected && <Check className="h-3 w-3" />}
+                                        </div>
+                                        <span>{methodName}</span>
+                                      </CommandItem>
+                                    );
+                                  })}
+                                </CommandGroup>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center justify-end">

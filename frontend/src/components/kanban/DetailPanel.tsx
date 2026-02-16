@@ -30,7 +30,7 @@ interface DetailPanelProps {
     onReturn: () => void;
   };
   availableMethods?: string[];
-  operatorOptions?: { id: number; name: string }[];
+  operatorOptions?: { id: number; name: string; methodPermissions?: string[] }[];
   comments?: CommentThread[];
   issueHistoryTimestamps?: string[];
   returnNoteTimestamps?: string[];
@@ -148,10 +148,22 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
   const [commentAuthor, setCommentAuthor] = useState(currentUserName ?? '');
   const [storageParts, setStorageParts] = useState(() => parseStorageLocation(card.storageLocation || ''));
   const isAdmin = Boolean(onPlanAnalysis);
+  const normalizeMethodKey = (value: string) => value.trim().toLowerCase();
+  const canAssignOnlySelf = role === 'lab_operator' && !isAdmin;
   const selfOperatorName = (currentUserName || '').trim();
-  const assignableOperators = role === 'lab_operator'
-    ? (selfOperatorName ? [{ id: -1, name: selfOperatorName }] : [])
-    : operatorOptions;
+  const selectedMethodKey = normalizeMethodKey(assignMethod);
+  const hasMethodPermission = (op: { methodPermissions?: string[] }, methodKey: string) => {
+    if (!methodKey) return true;
+    const perms = op.methodPermissions || [];
+    if (perms.length === 0) return true; // avoid false-negative UI filtering; backend still enforces
+    return perms.some((m) => normalizeMethodKey(m) === methodKey);
+  };
+  const eligibleOperators = operatorOptions.filter((op) => hasMethodPermission(op, selectedMethodKey));
+  const assignableOperators = canAssignOnlySelf
+    ? (selfOperatorName
+        ? eligibleOperators.filter((op) => op.name.trim().toLowerCase() === selfOperatorName.toLowerCase())
+        : [])
+    : (selectedMethodKey && eligibleOperators.length > 0 ? eligibleOperators : operatorOptions);
 
   useEffect(() => {
     if (currentUserName) {
@@ -164,6 +176,13 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
     setAssignError('');
     setPlanError('');
   }, [card.sampleId]);
+  useEffect(() => {
+    if (!assignOperator) return;
+    const exists = assignableOperators.some((op) => op.name === assignOperator);
+    if (!exists) {
+      setAssignOperator('');
+    }
+  }, [assignOperator, assignableOperators]);
   useEffect(() => {
     setStorageParts(parseStorageLocation(card.storageLocation || ''));
   }, [card.storageLocation]);
@@ -580,7 +599,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                       <SelectValue placeholder="Assign to lab operator" />
                     </SelectTrigger>
                     <SelectContent>
-                      {role !== 'lab_operator' && <SelectItem value="__unassigned">Unassigned</SelectItem>}
+                      {!canAssignOnlySelf && <SelectItem value="__unassigned">Unassigned</SelectItem>}
                       {assignableOperators.map((op) => (
                         <SelectItem key={op.id} value={op.name}>
                           {op.name}
@@ -589,6 +608,9 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                     </SelectContent>
                   </Select>
                 </div>
+                {assignMethod && assignableOperators.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No operators have permission for this method.</p>
+                )}
                 {assignError && <p className="text-sm text-destructive">{assignError}</p>}
                 <Button
                   size="sm"
@@ -601,8 +623,12 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                       setAssignError('Select an operator to assign');
                       return;
                     }
-                    if (role === 'lab_operator' && selfOperatorName && assignOperator.trim().toLowerCase() !== selfOperatorName.toLowerCase()) {
+                    if (canAssignOnlySelf && selfOperatorName && assignOperator.trim().toLowerCase() !== selfOperatorName.toLowerCase()) {
                       setAssignError('Lab operator can assign only themselves');
+                      return;
+                    }
+                    if (assignableOperators.length === 0) {
+                      setAssignError('No eligible operators for this method');
                       return;
                     }
                     onAssignOperator?.(assignMethod, assignOperator);

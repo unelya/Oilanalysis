@@ -76,6 +76,7 @@ class UserOut(BaseModel):
     email: EmailStr | None = None
     role: str
     roles: list[str]
+    method_permissions: list[str] = []
 
 
 class UserCreate(BaseModel):
@@ -84,6 +85,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     role: str | None = Field(default=None, pattern="^(warehouse_worker|lab_operator|action_supervision|admin)$")
     roles: list[str] | None = None
+    method_permissions: list[str] | None = None
 
 
 class UserCreateOut(UserOut):
@@ -94,3 +96,4 @@ class UserUpdate(BaseModel):
     email: EmailStr | None = None
     role: str | None = Field(default=None, pattern="^(warehouse_worker|lab_operator|action_supervision|admin)$")
     roles: list[str] | None = None
+    method_permissions: list[str] | None = None

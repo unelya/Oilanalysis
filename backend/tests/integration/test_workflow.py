@@ -16,7 +16,7 @@ def test_sample_to_analysis_workflow(client):
     assert res.status_code == 200
     assert res.json()["status"] == "progress"
 
-    analysis_payload = {"sample_id": "S-100", "analysis_type": "SARA", "assigned_to": ["Dr. Lee"]}
+    analysis_payload = {"sample_id": "S-100", "analysis_type": "SARA"}
     res = client.post("/planned-analyses", json=analysis_payload)
     assert res.status_code == 201
     analysis = res.json()
@@ -97,7 +97,9 @@ def test_lab_operator_can_assign_only_self(client):
 
 def test_admin_can_assign_any_lab_operator(client):
     create_user_payload = {"username": "egg", "full_name": "Egg", "email": "egg@example.com", "role": "lab_operator"}
-    assert client.post("/admin/users", json=create_user_payload, headers={"x-role": "admin"}).status_code == 201
+    create_res = client.post("/admin/users", json=create_user_payload, headers={"x-role": "admin"})
+    assert create_res.status_code == 201
+    chick_id = create_res.json()["id"]
 
     sample_payload = {
         "sample_id": "S-202",
@@ -117,3 +119,50 @@ def test_admin_can_assign_any_lab_operator(client):
     )
     assert res.status_code == 200
     assert res.json()["assigned_to"] == ["Egg"]
+
+
+def test_method_permission_controls_assignment(client):
+    create_user_payload = {
+        "username": "chick",
+        "full_name": "Chick",
+        "email": "chick@example.com",
+        "role": "lab_operator",
+        "method_permissions": ["SARA"],
+    }
+    create_res = client.post("/admin/users", json=create_user_payload, headers={"x-role": "admin"})
+    assert create_res.status_code == 201
+    chick_id = create_res.json()["id"]
+
+    sample_payload = {
+        "sample_id": "S-203",
+        "well_id": "W-22",
+        "horizon": "H4",
+        "sampling_date": "2024-01-01",
+        "status": "new",
+        "storage_location": "Shelf D",
+    }
+    assert client.post("/samples", json=sample_payload).status_code == 201
+    analysis = client.post("/planned-analyses", json={"sample_id": "S-203", "analysis_type": "IR"}).json()
+
+    res = client.patch(
+        f"/planned-analyses/{analysis['id']}",
+        json={"assigned_to": ["Chick"]},
+        headers={"x-role": "admin", "x-user": "Admin User"},
+    )
+    assert res.status_code == 400
+
+    assert (
+        client.patch(
+            f"/admin/users/{chick_id}",
+            json={"method_permissions": ["SARA", "IR"]},
+            headers={"x-role": "admin"},
+        ).status_code
+        == 200
+    )
+    res = client.patch(
+        f"/planned-analyses/{analysis['id']}",
+        json={"assigned_to": ["Chick"]},
+        headers={"x-role": "admin", "x-user": "Admin User"},
+    )
+    assert res.status_code == 200
+    assert res.json()["assigned_to"] == ["Chick"]

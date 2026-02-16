@@ -11,18 +11,19 @@ from sqlalchemy.orm import Session
 # Support running as a module or script
 try:
     from .database import Base, engine, get_db
-    from .models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel
+    from .models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel, UserMethodPermissionModel
     from .schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserCreate, UserCreateOut, UserUpdate
     from .seed import seed_users
 except ImportError:  # pragma: no cover - fallback for script execution
   from database import Base, engine, get_db  # type: ignore
-  from models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel  # type: ignore
+  from models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel, UserMethodPermissionModel  # type: ignore
   from schemas import ActionBatchCreate, ActionBatchOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserCreate, UserCreateOut, UserUpdate  # type: ignore
   from seed import seed_users  # type: ignore
 
 app = FastAPI(title="LabSync backend", version="0.1.0")
 
 DEFAULT_PASSWORD = "labsync123"
+DEFAULT_METHOD_PERMISSIONS = ["SARA", "IR", "Mass Spectrometry", "Viscosity"]
 
 Base.metadata.create_all(bind=engine)
 seed_users()
@@ -233,6 +234,24 @@ def normalize_methods(value: list[str] | None) -> list[str]:
       cleaned.append(name)
   return cleaned
 
+
+def normalize_method_key(name: str | None) -> str:
+  return (name or "").strip().lower()
+
+
+def get_user_method_permissions(db: Session, user_id: int) -> list[str]:
+  rows = db.execute(
+    select(UserMethodPermissionModel.method_name).where(UserMethodPermissionModel.user_id == user_id)
+  ).all()
+  methods = [r[0] for r in rows if r and r[0]]
+  return normalize_methods(methods)
+
+
+def set_user_method_permissions(db: Session, user_id: int, methods: list[str]):
+  db.execute(delete(UserMethodPermissionModel).where(UserMethodPermissionModel.user_id == user_id))
+  for method in normalize_methods(methods):
+    db.add(UserMethodPermissionModel(user_id=user_id, method_name=method))
+
 def is_admin_from_headers(request: Request) -> bool:
   roles_header = (request.headers.get("x-roles") or "").lower()
   role_header = (request.headers.get("x-role") or "").lower()
@@ -270,6 +289,17 @@ async def create_planned_analysis(payload: PlannedAnalysisCreate, request: Reque
     raise HTTPException(status_code=400, detail="Analysis type required")
   if not is_admin and name not in default_allowed:
     raise HTTPException(status_code=403, detail="Only these analysis types are allowed: SARA, IR, Mass Spectrometry, Viscosity")
+  assignees = normalize_assignees(payload.assigned_to)
+  method_key = normalize_method_key(name)
+  for assignee in assignees:
+    assignee_user = find_user_by_identity(db, assignee)
+    if assignee_user is None:
+      raise HTTPException(status_code=400, detail="Assignee user not found")
+    if not has_role(assignee_user, "lab_operator"):
+      raise HTTPException(status_code=400, detail="Assignee must have lab operator role")
+    allowed_methods = {normalize_method_key(method_name) for method_name in get_user_method_permissions(db, assignee_user.id)}
+    if method_key not in allowed_methods:
+      raise HTTPException(status_code=400, detail=f"{assignee_user.full_name} is not allowed for {name}")
   row = PlannedAnalysisModel(
     sample_id=payload.sample_id,
     analysis_type=name,
@@ -279,7 +309,6 @@ async def create_planned_analysis(payload: PlannedAnalysisCreate, request: Reque
   db.add(row)
   db.commit()
   db.refresh(row)
-  assignees = normalize_assignees(payload.assigned_to)
   for assignee in assignees:
     db.add(PlannedAnalysisAssigneeModel(analysis_id=row.id, assignee=assignee))
   if assignees:
@@ -303,6 +332,7 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
     actor_user = find_user_by_identity(db, actor_identity)
     is_admin = is_admin_from_headers(request) or (actor_user is not None and has_role(actor_user, "admin"))
     assignees = normalize_assignees(payload.assigned_to)
+    method_key = normalize_method_key(row.analysis_type)
     if not is_admin:
       if actor_user is None or not has_role(actor_user, "lab_operator"):
         raise HTTPException(status_code=403, detail="Only lab operator can self-assign")
@@ -312,6 +342,20 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
       }
       if len(assignees) != 1 or assignees[0].strip().lower() not in actor_names:
         raise HTTPException(status_code=403, detail="Lab operator can assign only themselves")
+      allowed_methods = {normalize_method_key(name) for name in get_user_method_permissions(db, actor_user.id)}
+      if method_key and method_key not in allowed_methods:
+        raise HTTPException(status_code=400, detail=f"{actor_user.full_name} is not allowed for {row.analysis_type}")
+    else:
+      assignee_users = [find_user_by_identity(db, assignee) for assignee in assignees]
+      if any(user is None for user in assignee_users):
+        raise HTTPException(status_code=400, detail="Assignee user not found")
+      assignee_users = [user for user in assignee_users if user is not None]
+      if any(not has_role(user, "lab_operator") for user in assignee_users):
+        raise HTTPException(status_code=400, detail="Assignee must have lab operator role")
+      for user in assignee_users:
+        allowed_methods = {normalize_method_key(name) for name in get_user_method_permissions(db, user.id)}
+        if method_key and method_key not in allowed_methods:
+          raise HTTPException(status_code=400, detail=f"{user.full_name} is not allowed for {row.analysis_type}")
     db.execute(
       delete(PlannedAnalysisAssigneeModel).where(
         PlannedAnalysisAssigneeModel.analysis_id == row.id
@@ -506,6 +550,7 @@ async def list_users(db: Session = Depends(get_db)):
       email=r.email,
       role=parse_roles(r.roles)[0] if parse_roles(r.roles) else r.role,
       roles=parse_roles(r.roles) or [r.role],
+      method_permissions=get_user_method_permissions(db, r.id),
     )
     for r in rows
   ]
@@ -530,10 +575,17 @@ async def create_user(payload: UserCreate, request: Request, db: Session = Depen
   roles = payload.roles or ([payload.role] if payload.role else ["lab_operator"])
   roles = [r for r in roles if r]
   primary = roles[0] if roles else "lab_operator"
+  if payload.method_permissions is not None and "lab_operator" not in roles:
+    raise HTTPException(status_code=400, detail="Method permissions are only for lab operators")
   row = UserModel(username=username, full_name=full_name, email=email, role=primary, roles=serialize_roles(roles))
   db.add(row)
   db.commit()
   db.refresh(row)
+  method_permissions = normalize_methods(payload.method_permissions) if payload.method_permissions is not None else []
+  if has_role(row, "lab_operator"):
+    method_permissions = method_permissions or DEFAULT_METHOD_PERMISSIONS
+  set_user_method_permissions(db, row.id, method_permissions)
+  db.commit()
   return UserCreateOut(
     id=row.id,
     username=row.username,
@@ -541,6 +593,7 @@ async def create_user(payload: UserCreate, request: Request, db: Session = Depen
     email=row.email,
     role=row.role,
     roles=parse_roles(row.roles) or [row.role],
+    method_permissions=get_user_method_permissions(db, row.id),
     default_password=DEFAULT_PASSWORD,
   )
 
@@ -564,10 +617,24 @@ async def update_user(user_id: int, payload: UserUpdate, request: Request, db: S
   primary = roles[0] if roles else row.role
   row.role = primary
   row.roles = serialize_roles(roles)
+  if payload.method_permissions is not None:
+    if not has_role(row, "lab_operator"):
+      raise HTTPException(status_code=400, detail="Method permissions are only for lab operators")
+    set_user_method_permissions(db, row.id, payload.method_permissions)
+  elif not has_role(row, "lab_operator"):
+    set_user_method_permissions(db, row.id, [])
   db.add(row)
   db.commit()
   db.refresh(row)
-  return UserOut(id=row.id, username=row.username, full_name=row.full_name, email=row.email, role=row.role, roles=parse_roles(row.roles) or [row.role])
+  return UserOut(
+    id=row.id,
+    username=row.username,
+    full_name=row.full_name,
+    email=row.email,
+    role=row.role,
+    roles=parse_roles(row.roles) or [row.role],
+    method_permissions=get_user_method_permissions(db, row.id),
+  )
 
 
 @app.delete("/admin/users/{user_id}")
