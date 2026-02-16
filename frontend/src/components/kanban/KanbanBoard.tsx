@@ -118,7 +118,7 @@ export function KanbanBoard({
 }: {
   role: Role;
   searchTerm?: string;
-  onNotificationsChange?: (notifications: { id: string; title: string; description?: string }[]) => void;
+  onNotificationsChange?: (notifications: { id: string; title: string; description?: string; createdAt?: string }[]) => void;
   notificationClickId?: string | null;
   markAllReadToken?: number;
   onNotificationConsumed?: () => void;
@@ -1411,7 +1411,7 @@ export function KanbanBoard({
   }, [cards, plannedAnalyses, role, adminStoredByCard, deletedByCard, labStatusOverrides, labNeedsAttentionReasons]);
 
   const assignmentNotifications = useMemo(() => {
-    if (!currentUserKey) return [] as { id: string; title: string; description?: string }[];
+    if (!currentUserKey) return [] as { id: string; title: string; description?: string; createdAt?: string }[];
     const unread = readAssignmentNotifications()
       .filter((note) => note.recipient?.trim().toLowerCase() === currentUserKey)
       .filter((note) => !assignmentReadIds.includes(note.id))
@@ -1423,11 +1423,13 @@ export function KanbanBoard({
         note.action === 'assigned'
           ? `${note.method} on ${note.sampleId} assigned to you${note.actor ? ` by ${note.actor}` : ''}.`
           : `${note.method} on ${note.sampleId} unassigned from you${note.actor ? ` by ${note.actor}` : ''}.`,
+      createdAt: note.createdAt,
     }));
   }, [assignmentReadIds, assignmentVersion, currentUserKey]);
 
   useEffect(() => {
     if (!onNotificationsChange) return;
+    const nowIso = new Date().toISOString();
     if (role !== 'warehouse_worker' && role !== 'lab_operator' && role !== 'action_supervision' && role !== 'admin') {
       onNotificationsChange(assignmentNotifications);
       return;
@@ -1440,6 +1442,7 @@ export function KanbanBoard({
           id: `planned:${card.sampleId}`,
           title: 'New planned sample',
           description: `${card.sampleId} appeared in Planned without using “New sample”.`,
+          createdAt: nowIso,
         }));
       const returnedNotes = Object.entries(warehouseReturnHighlights)
         .filter(([, flagged]) => flagged)
@@ -1448,6 +1451,7 @@ export function KanbanBoard({
           id: `returned:${sampleId}`,
           title: 'Returned for analysis',
           description: `${sampleId} was returned to Warehouse by Admin.`,
+          createdAt: nowIso,
         }));
       onNotificationsChange([...plannedNotes, ...returnedNotes, ...assignmentNotifications]);
       return;
@@ -1461,6 +1465,7 @@ export function KanbanBoard({
           id: `action-uploaded:${card.sampleId}`,
           title: 'Uploaded batch',
           description: `${card.sampleId} is in Uploaded batch.`,
+          createdAt: nowIso,
         }));
       const conflictNotes = conflictCards
         .filter((card) => !actionConflictRead[card.sampleId])
@@ -1468,6 +1473,7 @@ export function KanbanBoard({
           id: `action-conflict:${card.sampleId}`,
           title: 'Conflict detected',
           description: `${card.sampleId} is in Conflicts.`,
+          createdAt: nowIso,
         }));
       onNotificationsChange([...uploadedNotes, ...conflictNotes, ...assignmentNotifications]);
       return;
@@ -1502,6 +1508,7 @@ export function KanbanBoard({
         id: `admin-issues:${sampleId}`,
         title: 'Issue reported',
         description: `${sampleId} is in Issues.`,
+        createdAt: nowIso,
       }));
       const needsNotes = [...needsFromData]
         .filter((sampleId) => !adminNeedsRead[sampleId])
@@ -1509,6 +1516,7 @@ export function KanbanBoard({
         id: `admin-needs:${sampleId}`,
         title: 'Needs attention',
         description: `${sampleId} is in Needs attention.`,
+        createdAt: nowIso,
       }));
       onNotificationsChange([...issueNotes, ...needsNotes, ...assignmentNotifications]);
       return;
@@ -1519,6 +1527,7 @@ export function KanbanBoard({
         id: `lab-planned:${card.sampleId}`,
         title: 'New planned analysis',
         description: `${card.sampleId} is in Planned.`,
+        createdAt: nowIso,
       }));
     const returnedSampleIds = new Set<string>();
     Object.entries(labReturnHighlights).forEach(([sampleId, flagged]) => {
@@ -1533,6 +1542,7 @@ export function KanbanBoard({
         id: `lab-returned:${sampleId}`,
         title: 'Returned for analysis',
         description: `${sampleId} was returned to Lab by Admin.`,
+        createdAt: nowIso,
       }));
     onNotificationsChange([...plannedNotes, ...returnedNotes, ...assignmentNotifications]);
   }, [

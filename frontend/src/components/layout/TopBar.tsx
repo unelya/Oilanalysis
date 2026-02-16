@@ -1,4 +1,4 @@
-import { ChangeEvent } from 'react';
+import { ChangeEvent, useMemo } from 'react';
 import { Bell, Search, LogOut, Moon, Sun } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,7 @@ interface TopBarProps {
   onSearch?: (value: string) => void;
   allowedRoles?: Role[];
   showNotificationDot?: boolean;
-  notifications?: { id: string; title: string; description?: string }[];
+  notifications?: { id: string; title: string; description?: string; createdAt?: string }[];
   onNotificationClick?: (id: string) => void;
   onMarkAllRead?: () => void;
 }
@@ -39,6 +39,15 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
   const selectedRole = role && selectableRoles.includes(role)
     ? role
     : selectableRoles[0] ?? user?.role ?? 'lab_operator';
+  const sortedNotifications = useMemo(
+    () =>
+      [...notifications].sort((a, b) => {
+        const at = Date.parse(a.createdAt || '') || 0;
+        const bt = Date.parse(b.createdAt || '') || 0;
+        return bt - at;
+      }),
+    [notifications],
+  );
 
   const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
     onSearch?.(event.target.value);
@@ -102,8 +111,8 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-semibold text-foreground">Notifications</span>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{notifications.length}</span>
-                {notifications.length > 0 && (
+                <span className="text-xs text-muted-foreground">{sortedNotifications.length}</span>
+                {sortedNotifications.length > 0 && (
                   <button
                     className="text-xs text-primary hover:underline"
                     onClick={onMarkAllRead}
@@ -113,11 +122,11 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
                 )}
               </div>
             </div>
-            {notifications.length === 0 ? (
+            {sortedNotifications.length === 0 ? (
               <p className="text-sm text-muted-foreground">No new notifications.</p>
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {notifications.map((note) => (
+                {sortedNotifications.map((note) => (
                   <button
                     key={note.id}
                     className="w-full text-left rounded-md border border-border/60 bg-muted/40 p-2 hover:bg-muted/70 transition-colors"
@@ -125,6 +134,9 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
                   >
                     <p className="text-sm font-medium text-foreground">{note.title}</p>
                     {note.description && <p className="text-xs text-muted-foreground mt-1">{note.description}</p>}
+                    {note.createdAt && (
+                      <p className="text-[11px] text-muted-foreground/80 mt-1">{new Date(note.createdAt).toLocaleString()}</p>
+                    )}
                   </button>
                 ))}
               </div>

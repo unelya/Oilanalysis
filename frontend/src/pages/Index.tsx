@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/use-auth';
 const Index = () => {
   const [role, setRole] = useState<Role>('lab_operator');
   const [searchTerm, setSearchTerm] = useState('');
-  const [notifications, setNotifications] = useState<{ id: string; title: string; description?: string }[]>([]);
+  const [notifications, setNotifications] = useState<{ id: string; title: string; description?: string; createdAt?: string }[]>([]);
   const [notificationClickId, setNotificationClickId] = useState<string | null>(null);
   const [markAllReadToken, setMarkAllReadToken] = useState(0);
   const { user } = useAuth();
