@@ -178,6 +178,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
   }, [card.sampleId]);
   useEffect(() => {
     if (!assignOperator) return;
+    if (assignOperator === '__unassigned') return;
     const exists = assignableOperators.some((op) => op.name === assignOperator);
     if (!exists) {
       setAssignOperator('');
@@ -623,16 +624,18 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                       setAssignError('Select an operator to assign');
                       return;
                     }
+                    const isUnassigned = assignOperator === '__unassigned';
                     if (canAssignOnlySelf && selfOperatorName && assignOperator.trim().toLowerCase() !== selfOperatorName.toLowerCase()) {
                       setAssignError('Lab operator can assign only themselves');
                       return;
                     }
-                    if (assignableOperators.length === 0) {
+                    if (!isUnassigned && assignableOperators.length === 0) {
                       setAssignError('No eligible operators for this method');
                       return;
                     }
                     onAssignOperator?.(assignMethod, assignOperator);
                     setAssignMethod('');
+                    setAssignOperator('');
                     setAssignError('');
                   }}
                 >
