@@ -3217,6 +3217,7 @@ export function KanbanBoard({
   const handleAnalysisFieldUpdate = async (analysisId: number, updates: { assigned_to?: string }) => {
     const currentUser = (user?.fullName || user?.username || '').trim();
     const requested = (updates.assigned_to || '').trim();
+    const existing = plannedAnalyses.find((pa) => pa.id === analysisId);
     if (role === 'lab_operator' && !isAdminUser) {
       if (!currentUser) {
         toast({ title: "User not identified", description: "Sign in again to assign methods.", variant: "destructive" });
@@ -3227,16 +3228,25 @@ export function KanbanBoard({
         return;
       }
     }
+    const mergedForLabOperator =
+      role === 'lab_operator' && !isAdminUser
+        ? Array.from(new Set([...(normalizeAssignees(existing?.assignedTo) || []), requested]))
+        : undefined;
+    const nextAssigned = mergedForLabOperator ?? (requested ? [requested] : existing?.assignedTo);
     setPlannedAnalyses((prev) =>
       prev.map((pa) =>
-        pa.id === analysisId ? { ...pa, assignedTo: requested ? [requested] : pa.assignedTo } : pa,
+        pa.id === analysisId ? { ...pa, assignedTo: nextAssigned } : pa,
       ),
     );
     if (selectedCard?.id === analysisId.toString()) {
-      setSelectedCard((prev) => (prev ? { ...prev, assignedTo: requested || prev.assignedTo } : prev));
+      setSelectedCard((prev) => (prev ? { ...prev, assignedTo: nextAssigned ?? prev.assignedTo } : prev));
     }
     try {
-      await updatePlannedAnalysis(analysisId, undefined as any, updates.assigned_to);
+      await updatePlannedAnalysis(
+        analysisId,
+        undefined as any,
+        role === 'lab_operator' && !isAdminUser ? (nextAssigned as string[] | undefined) : updates.assigned_to,
+      );
     } catch (err) {
       toast({
         title: "Failed to update analysis",
@@ -3617,7 +3627,11 @@ export function KanbanBoard({
               }
             }
             const isUnassigned = operator === '__unassigned';
-            const nextAssignees = isUnassigned ? [] : [requestedOperator];
+            const nextAssignees = isUnassigned
+              ? []
+              : role === 'lab_operator' && !isAdminUser
+              ? Array.from(new Set([...(normalizeAssignees(target.assignedTo) || []), requestedOperator]))
+              : [requestedOperator];
             updatePlannedAnalysis(target.id, target.status, nextAssignees).then(() => {
               setPlannedAnalyses((prev) =>
                 prev.map((pa) => {

@@ -340,8 +340,14 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
         (actor_user.username or "").strip().lower(),
         (actor_user.full_name or "").strip().lower(),
       }
-      if len(assignees) != 1 or assignees[0].strip().lower() not in actor_names:
+      existing_assignees = [name.strip().lower() for name in get_assignees(db, row.id, row.assigned_to)]
+      requested_assignees = [name.strip().lower() for name in assignees]
+      if not set(actor_names).intersection(requested_assignees):
         raise HTTPException(status_code=403, detail="Lab operator can assign only themselves")
+      existing_non_actor = {name for name in existing_assignees if name and name not in actor_names}
+      requested_non_actor = {name for name in requested_assignees if name and name not in actor_names}
+      if existing_non_actor != requested_non_actor:
+        raise HTTPException(status_code=403, detail="Lab operator can only add or remove self")
       allowed_methods = {normalize_method_key(name) for name in get_user_method_permissions(db, actor_user.id)}
       if method_key and method_key not in allowed_methods:
         raise HTTPException(status_code=400, detail=f"{actor_user.full_name} is not allowed for {row.analysis_type}")

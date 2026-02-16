@@ -166,3 +166,44 @@ def test_method_permission_controls_assignment(client):
     )
     assert res.status_code == 200
     assert res.json()["assigned_to"] == ["Chick"]
+
+
+def test_lab_operator_self_assign_keeps_existing_assignees(client):
+    chick = client.post(
+        "/admin/users",
+        json={"username": "chick2", "full_name": "Chick Two", "email": "chick2@example.com", "role": "lab_operator"},
+        headers={"x-role": "admin"},
+    )
+    assert chick.status_code == 201
+    egg = client.post(
+        "/admin/users",
+        json={"username": "egg2", "full_name": "Egg Two", "email": "egg2@example.com", "role": "lab_operator"},
+        headers={"x-role": "admin"},
+    )
+    assert egg.status_code == 201
+
+    sample_payload = {
+        "sample_id": "S-204",
+        "well_id": "W-23",
+        "horizon": "H5",
+        "sampling_date": "2024-01-01",
+        "status": "new",
+        "storage_location": "Shelf E",
+    }
+    assert client.post("/samples", json=sample_payload).status_code == 201
+    analysis = client.post("/planned-analyses", json={"sample_id": "S-204", "analysis_type": "Mass Spectrometry"}).json()
+
+    res = client.patch(
+        f"/planned-analyses/{analysis['id']}",
+        json={"assigned_to": ["Chick Two"]},
+        headers={"x-role": "admin", "x-user": "Admin User"},
+    )
+    assert res.status_code == 200
+
+    res = client.patch(
+        f"/planned-analyses/{analysis['id']}",
+        json={"assigned_to": ["Chick Two", "Egg Two"]},
+        headers={"x-role": "lab_operator", "x-user": "Egg Two"},
+    )
+    assert res.status_code == 200
+    assert sorted(res.json()["assigned_to"]) == ["Chick Two", "Egg Two"]
