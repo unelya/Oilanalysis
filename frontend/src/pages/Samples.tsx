@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { BackToTopButton } from "@/components/layout/BackToTopButton";
 import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -675,6 +676,7 @@ const Samples = () => {
           </div>
         </div>
       </div>
+      <BackToTopButton />
     </div>
   );
 };

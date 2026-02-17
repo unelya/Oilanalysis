@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { TopBar } from '@/components/layout/TopBar';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { BackToTopButton } from "@/components/layout/BackToTopButton";
 import { KanbanBoard } from '@/components/kanban/KanbanBoard';
 import { Role } from '@/types/kanban';
 import { useAuth } from '@/hooks/use-auth';
@@ -45,6 +46,7 @@ const Index = () => {
           onNotificationConsumed={() => setNotificationClickId(null)}
         />
       </div>
+      <BackToTopButton />
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { BackToTopButton } from "@/components/layout/BackToTopButton";
 import { AdminEvent, createUser, deleteUser, fetchAdminEvents, fetchUsers, updateUser, updateUserMethodPermissions, updateUserRole } from "@/lib/api";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -606,6 +607,7 @@ const Admin = () => {
           </div>
         </div>
       </div>
+      <BackToTopButton />
       <Dialog open={emailEditorOpen} onOpenChange={setEmailEditorOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

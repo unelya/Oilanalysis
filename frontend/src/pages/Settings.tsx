@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { BackToTopButton } from "@/components/layout/BackToTopButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -72,6 +73,7 @@ const Settings = () => {
           </div>
         </div>
       </div>
+      <BackToTopButton />
     </div>
   );
 };
