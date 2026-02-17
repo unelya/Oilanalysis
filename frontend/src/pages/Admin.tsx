@@ -43,6 +43,7 @@ const eventActions = [
   "role_changed",
   "method_permissions_changed",
 ];
+const defaultUserPassword = "Tatneft123";
 
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
@@ -347,7 +348,7 @@ const Admin = () => {
               </div>
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              New users are created with a default password shown after creation.
+              Default password for new users: <span className="font-mono text-foreground">{defaultUserPassword}</span>.
             </p>
           </div>
           <div className="mt-4 rounded-2xl border border-border/60 bg-card/70">

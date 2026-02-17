@@ -65,6 +65,7 @@ def test_admin_user_creation_requires_admin(client):
     assert data["username"] == "qa.user"
     assert data["email"] == "qa.user@example.com"
     assert data["role"] == "lab_operator"
+    assert data["default_password"] == "Tatneft123"
 
 
 def test_lab_operator_can_assign_only_self(client):

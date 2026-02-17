@@ -22,7 +22,7 @@ except ImportError:  # pragma: no cover - fallback for script execution
 
 app = FastAPI(title="LabSync backend", version="0.1.0")
 
-DEFAULT_PASSWORD = "labsync123"
+DEFAULT_PASSWORD = "Tatneft123"
 DEFAULT_METHOD_PERMISSIONS = ["SARA", "IR", "Mass Spectrometry", "Viscosity"]
 
 Base.metadata.create_all(bind=engine)
