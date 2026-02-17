@@ -11,9 +11,6 @@ except ImportError:  # pragma: no cover
 
 
 DEFAULT_USERS = [
-    {"username": "warehouse", "full_name": "Warehouse Worker", "email": "warehouse@labsync.local", "role": "warehouse_worker", "roles": "warehouse_worker"},
-    {"username": "lab", "full_name": "Lab Operator", "email": "lab@labsync.local", "role": "lab_operator", "roles": "lab_operator"},
-    {"username": "action", "full_name": "Action Supervisor", "email": "action@labsync.local", "role": "action_supervision", "roles": "action_supervision"},
     {"username": "admin", "full_name": "Admin User", "email": "admin@labsync.local", "role": "admin", "roles": "admin"},
 ]
 DEFAULT_METHODS = ["SARA", "IR", "Mass Spectrometry", "Viscosity"]

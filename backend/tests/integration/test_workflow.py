@@ -247,6 +247,10 @@ def test_admin_can_update_username_and_full_name(client):
 
 
 def test_lab_operator_can_assign_only_self(client):
+    create_user_payload = {"username": "lab.op", "full_name": "Lab Operator", "email": "lab.op@example.com", "role": "lab_operator"}
+    create_res = client.post("/admin/users", json=create_user_payload, headers={"x-role": "admin"})
+    assert create_res.status_code == 201
+
     sample_payload = {
         "sample_id": "S-201",
         "well_id": "W-20",
