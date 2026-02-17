@@ -45,7 +45,7 @@ const SHOW_LAB_COMPLETED_MOCK = false;
 
 const roleCopy: Record<Role, string> = {
   warehouse_worker: 'Warehouse view: samples and storage',
-  lab_operator: 'Lab view: planned analyses',
+  lab_operator: 'Lab view: analyses',
   action_supervision: 'Action supervision view',
   admin: 'Admin view',
 };
