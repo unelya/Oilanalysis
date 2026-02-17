@@ -73,7 +73,7 @@ class UserOut(BaseModel):
     id: int
     username: str
     full_name: str
-    email: EmailStr | None = None
+    email: str | None = None
     role: str
     roles: list[str]
     method_permissions: list[str] = []

@@ -19,9 +19,17 @@ const queryClient = new QueryClient();
 const RequireRole = ({ allowed, children }: { allowed: Role[]; children: JSX.Element }) => {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
+  if (user.mustChangePassword) return <Navigate to="/login" replace />;
   const roles = user.roles ?? [user.role];
   const hasAccess = roles.some((role) => allowed.includes(role));
   if (!hasAccess) return <Navigate to="/board" replace />;
+  return children;
+};
+
+const RequireAuth = ({ children }: { children: JSX.Element }) => {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.mustChangePassword) return <Navigate to="/login" replace />;
   return children;
 };
 
@@ -36,8 +44,22 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Navigate to="/board" replace />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/board" element={<Index />} />
-              <Route path="/samples" element={<Samples />} />
+              <Route
+                path="/board"
+                element={
+                  <RequireAuth>
+                    <Index />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/samples"
+                element={
+                  <RequireAuth>
+                    <Samples />
+                  </RequireAuth>
+                }
+              />
               <Route
                 path="/actions"
                 element={

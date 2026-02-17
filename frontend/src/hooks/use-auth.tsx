@@ -6,11 +6,13 @@ interface AuthUser {
   role: Role;
   roles: Role[];
   fullName: string;
+  mustChangePassword: boolean;
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
   login: (username: string, password: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -25,7 +27,29 @@ async function apiLogin(username: string, password: string) {
     body: JSON.stringify({ username, password }),
   });
   if (!res.ok) throw new Error(`Login failed: ${res.status}`);
-  return (await res.json()) as { token: string; role: Role; roles?: Role[]; full_name: string };
+  return (await res.json()) as { token: string; role: Role; roles?: Role[]; full_name: string; must_change_password?: boolean };
+}
+
+async function apiChangePassword(token: string, currentPassword: string, newPassword: string) {
+  const res = await fetch("/api/auth/change-password", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+  if (!res.ok) {
+    let message = "";
+    try {
+      const payload = (await res.json()) as { detail?: string };
+      message = payload.detail || "";
+    } catch {
+      message = await res.text();
+    }
+    throw new Error(message || `Password change failed: ${res.status}`);
+  }
+  return (await res.json()) as { token: string; role: Role; roles?: Role[]; full_name: string; must_change_password?: boolean };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -36,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (stored) {
       try {
         const parsed = JSON.parse(stored) as AuthUser;
-        setUser({ ...parsed, roles: parsed.roles ?? [parsed.role] });
+        setUser({ ...parsed, roles: parsed.roles ?? [parsed.role], mustChangePassword: Boolean((parsed as any).mustChangePassword) });
       } catch {
         localStorage.removeItem(STORAGE_KEY);
       }
@@ -45,7 +69,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (username: string, password: string) => {
     const data = await apiLogin(username, password);
-    const authUser: AuthUser = { token: data.token, role: data.role, roles: data.roles ?? [data.role], fullName: data.full_name };
+    const authUser: AuthUser = {
+      token: data.token,
+      role: data.role,
+      roles: data.roles ?? [data.role],
+      fullName: data.full_name,
+      mustChangePassword: Boolean(data.must_change_password),
+    };
+    setUser(authUser);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
+  };
+
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    if (!user) throw new Error("Not authenticated");
+    const data = await apiChangePassword(user.token, currentPassword, newPassword);
+    const authUser: AuthUser = {
+      token: data.token,
+      role: data.role,
+      roles: data.roles ?? [data.role],
+      fullName: data.full_name,
+      mustChangePassword: Boolean(data.must_change_password),
+    };
     setUser(authUser);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
   };
@@ -55,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  const value = useMemo(() => ({ user, login, logout }), [user]);
+  const value = useMemo(() => ({ user, login, changePassword, logout }), [user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

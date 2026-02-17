@@ -1,3 +1,31 @@
+def test_auth_requires_valid_password_and_forces_password_change(client):
+    login = client.post("/auth/login", json={"username": "admin", "password": "admin"})
+    assert login.status_code == 200
+    data = login.json()
+    assert data["role"] == "admin"
+    assert data["must_change_password"] is True
+    token = data["token"]
+
+    invalid = client.post("/auth/login", json={"username": "admin", "password": "wrong-password"})
+    assert invalid.status_code == 401
+
+    changed = client.post(
+        "/auth/change-password",
+        json={"current_password": "admin", "new_password": "AdminStrong123"},
+        headers={"authorization": f"Bearer {token}"},
+    )
+    assert changed.status_code == 200
+    changed_data = changed.json()
+    assert changed_data["must_change_password"] is False
+
+    old_password_login = client.post("/auth/login", json={"username": "admin", "password": "admin"})
+    assert old_password_login.status_code == 401
+
+    new_password_login = client.post("/auth/login", json={"username": "admin", "password": "AdminStrong123"})
+    assert new_password_login.status_code == 200
+    assert new_password_login.json()["must_change_password"] is False
+
+
 def test_sample_to_analysis_workflow(client):
     sample_payload = {
         "sample_id": "S-100",
@@ -78,6 +106,21 @@ def test_admin_user_creation_requires_admin(client):
     assert data["email"] == "qa.user@example.com"
     assert data["role"] == "lab_operator"
     assert data["default_password"] == "Tatneft123"
+    login = client.post("/auth/login", json={"username": "qa.user", "password": "Tatneft123"})
+    assert login.status_code == 200
+    assert login.json()["must_change_password"] is True
+
+
+def test_admin_can_create_users_with_duplicate_emails(client):
+    payload_one = {"username": "dup.mail.1", "full_name": "Dup Mail One", "email": "dup@example.com", "role": "lab_operator"}
+    payload_two = {"username": "dup.mail.2", "full_name": "Dup Mail Two", "email": "dup@example.com", "role": "warehouse_worker"}
+
+    res_one = client.post("/admin/users", json=payload_one, headers={"x-role": "admin"})
+    assert res_one.status_code == 201
+
+    res_two = client.post("/admin/users", json=payload_two, headers={"x-role": "admin"})
+    assert res_two.status_code == 201
+    assert res_two.json()["email"] == "dup@example.com"
 
 
 def test_admin_can_update_username_and_full_name(client):

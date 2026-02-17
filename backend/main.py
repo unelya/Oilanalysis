@@ -14,19 +14,27 @@ try:
     from .models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel, UserMethodPermissionModel
     from .schemas import ActionBatchCreate, ActionBatchOut, AuditEventOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserCreate, UserCreateOut, UserUpdate
     from .seed import seed_users
+    from .security import hash_password, verify_password
 except ImportError:  # pragma: no cover - fallback for script execution
   from database import Base, engine, get_db  # type: ignore
   from models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel, UserMethodPermissionModel  # type: ignore
   from schemas import ActionBatchCreate, ActionBatchOut, AuditEventOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserCreate, UserCreateOut, UserUpdate  # type: ignore
   from seed import seed_users  # type: ignore
+  from security import hash_password, verify_password  # type: ignore
 
 app = FastAPI(title="LabSync backend", version="0.1.0")
 
 DEFAULT_PASSWORD = "Tatneft123"
 DEFAULT_METHOD_PERMISSIONS = ["SARA", "IR", "Mass Spectrometry", "Viscosity"]
+APP_ENV = (os.getenv("APP_ENV") or "development").strip().lower()
+IS_PRODUCTION = APP_ENV in {"prod", "production"}
+BOOTSTRAP_ADMIN_PASSWORD = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "admin")
+
+if IS_PRODUCTION and BOOTSTRAP_ADMIN_PASSWORD == "admin":
+  raise RuntimeError("Set BOOTSTRAP_ADMIN_PASSWORD in production; default 'admin' is blocked.")
 
 Base.metadata.create_all(bind=engine)
-seed_users()
+seed_users(bootstrap_admin_password=BOOTSTRAP_ADMIN_PASSWORD)
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,34 +61,19 @@ class LoginResponse(BaseModel):
   role: str
   roles: list[str]
   full_name: str
+  must_change_password: bool
 
 
-@app.post("/auth/login", response_model=LoginResponse)
-async def login(payload: LoginRequest, db: Session = Depends(get_db)):
-  username = payload.username.strip() or "user"
-  user = db.execute(select(UserModel).where(UserModel.username == username)).scalars().first()
-  if not user:
-    full_name = payload.full_name or username.replace(".", " ").title()
-    user = UserModel(username=username, full_name=full_name, role="warehouse_worker", roles="warehouse_worker")
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-  token = f"fake-{user.id}"
-  roles = parse_roles(user.roles)
-  return LoginResponse(token=token, role=roles[0] if roles else user.role, roles=roles, full_name=user.full_name)
+class ChangePasswordRequest(BaseModel):
+  current_password: str
+  new_password: str
 
 
-@app.get("/auth/me", response_model=LoginResponse)
-async def me(authorization: str | None = None, db: Session = Depends(get_db)):
+def get_user_from_authorization(authorization: str | None, db: Session) -> tuple[UserModel, str]:
   if not authorization or not authorization.lower().startswith("bearer "):
     raise HTTPException(status_code=401, detail="Unauthorized")
   token = authorization.split(" ", 1)[1]
-  user_id = None
-  if token.startswith("fake-"):
-    _, maybe_id = token.split("-", 1)
-    user_id = maybe_id
-  else:
-    user_id = token
+  user_id = token.split("-", 1)[1] if token.startswith("fake-") else token
   try:
     user_id_int = int(user_id)
   except Exception:
@@ -88,8 +81,73 @@ async def me(authorization: str | None = None, db: Session = Depends(get_db)):
   user = db.get(UserModel, user_id_int)
   if not user:
     raise HTTPException(status_code=401, detail="Invalid token")
+  return user, token
+
+
+@app.post("/auth/login", response_model=LoginResponse)
+async def login(payload: LoginRequest, db: Session = Depends(get_db)):
+  username = payload.username.strip()
+  if not username:
+    raise HTTPException(status_code=401, detail="Invalid username or password")
+  user = db.execute(select(UserModel).where(UserModel.username == username)).scalars().first()
+  if not user or not verify_password(payload.password, user.password_hash) or not user.is_active:
+    raise HTTPException(status_code=401, detail="Invalid username or password")
+  token = f"fake-{user.id}"
   roles = parse_roles(user.roles)
-  return LoginResponse(token=token, role=roles[0] if roles else user.role, roles=roles, full_name=user.full_name)
+  return LoginResponse(
+    token=token,
+    role=roles[0] if roles else user.role,
+    roles=roles,
+    full_name=user.full_name,
+    must_change_password=bool(user.must_change_password),
+  )
+
+
+@app.get("/auth/me", response_model=LoginResponse)
+async def me(request: Request, db: Session = Depends(get_db)):
+  user, token = get_user_from_authorization(request.headers.get("authorization"), db)
+  roles = parse_roles(user.roles)
+  return LoginResponse(
+    token=token,
+    role=roles[0] if roles else user.role,
+    roles=roles,
+    full_name=user.full_name,
+    must_change_password=bool(user.must_change_password),
+  )
+
+
+@app.post("/auth/change-password", response_model=LoginResponse)
+async def change_password(payload: ChangePasswordRequest, request: Request, db: Session = Depends(get_db)):
+  user, token = get_user_from_authorization(request.headers.get("authorization"), db)
+  if not verify_password(payload.current_password, user.password_hash):
+    raise HTTPException(status_code=401, detail="Current password is invalid")
+  new_password = (payload.new_password or "").strip()
+  if len(new_password) < 8:
+    raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
+  if payload.current_password == new_password:
+    raise HTTPException(status_code=400, detail="New password must be different")
+  user.password_hash = hash_password(new_password)
+  user.must_change_password = False
+  user.password_changed_at = datetime.now(timezone.utc).isoformat()
+  db.add(user)
+  db.commit()
+  db.refresh(user)
+  log_audit(
+    db,
+    entity_type="user",
+    entity_id=str(user.id),
+    action="password_changed",
+    performed_by=user.username,
+    details="self_service",
+  )
+  roles = parse_roles(user.roles)
+  return LoginResponse(
+    token=token,
+    role=roles[0] if roles else user.role,
+    roles=roles,
+    full_name=user.full_name,
+    must_change_password=bool(user.must_change_password),
+  )
 
 
 class Sample(BaseModel):
@@ -724,16 +782,22 @@ async def create_user(payload: UserCreate, request: Request, db: Session = Depen
   existing = db.execute(select(UserModel).where(UserModel.username == username)).scalars().first()
   if existing:
     raise HTTPException(status_code=400, detail="Username already exists")
-  existing_email = db.execute(select(UserModel).where(UserModel.email == email)).scalars().first()
-  if existing_email:
-    raise HTTPException(status_code=400, detail="Email already exists")
   full_name = payload.full_name.strip()
   roles = payload.roles or ([payload.role] if payload.role else ["lab_operator"])
   roles = [r for r in roles if r]
   primary = roles[0] if roles else "lab_operator"
   if payload.method_permissions is not None and "lab_operator" not in roles:
     raise HTTPException(status_code=400, detail="Method permissions are only for lab operators")
-  row = UserModel(username=username, full_name=full_name, email=email, role=primary, roles=serialize_roles(roles))
+  row = UserModel(
+    username=username,
+    full_name=full_name,
+    email=email,
+    password_hash=hash_password(DEFAULT_PASSWORD),
+    must_change_password=True,
+    is_active=True,
+    role=primary,
+    roles=serialize_roles(roles),
+  )
   db.add(row)
   db.commit()
   db.refresh(row)
@@ -792,11 +856,6 @@ async def update_user(user_id: int, payload: UserUpdate, request: Request, db: S
     row.full_name = next_full_name
   if payload.email is not None:
     next_email = str(payload.email).strip().lower()
-    existing_email = db.execute(
-      select(UserModel).where(UserModel.email == next_email, UserModel.id != user_id)
-    ).scalars().first()
-    if existing_email:
-      raise HTTPException(status_code=400, detail="Email already exists")
     row.email = next_email
   roles = payload.roles or ([payload.role] if payload.role else parse_roles(row.roles) or [row.role])
   primary = roles[0] if roles else row.role
