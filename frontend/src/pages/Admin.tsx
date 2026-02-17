@@ -86,6 +86,12 @@ const Admin = () => {
     try {
       const data = await fetchUsers();
       setUsers(data);
+    } catch (err) {
+      toast({
+        title: "Failed to load users",
+        description: err instanceof Error ? err.message : "Backend unreachable",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }

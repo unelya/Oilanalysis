@@ -212,7 +212,9 @@ export async function resolveConflict(id: number, note?: string) {
 }
 
 export async function fetchUsers() {
-  const res = await fetch("/api/admin/users");
+  const res = await fetch("/api/admin/users", {
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(`Failed to load users (${res.status})`);
   return (await res.json()) as { id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[]; method_permissions: string[] }[];
 }
