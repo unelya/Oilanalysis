@@ -127,3 +127,14 @@ class AuditLogModel(Base):
     performed_by: Mapped[str | None] = mapped_column(String, nullable=True)
     performed_at: Mapped[str] = mapped_column(String, nullable=False)
     details: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class PasswordResetTokenModel(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    requested_at: Mapped[str] = mapped_column(String, nullable=False)
+    expires_at: Mapped[str] = mapped_column(String, nullable=False)
+    used_at: Mapped[str | None] = mapped_column(String, nullable=True)

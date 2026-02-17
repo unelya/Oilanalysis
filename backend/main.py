@@ -1,6 +1,9 @@
 import os
 from datetime import datetime, timezone
 import re
+import secrets
+import smtplib
+from email.message import EmailMessage
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,16 +14,16 @@ from sqlalchemy.orm import Session
 # Support running as a module or script
 try:
     from .database import Base, engine, get_db
-    from .models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel, UserMethodPermissionModel
+    from .models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel, UserMethodPermissionModel, PasswordResetTokenModel
     from .schemas import ActionBatchCreate, ActionBatchOut, AuditEventOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserCreate, UserCreateOut, UserUpdate
     from .seed import seed_users
-    from .security import hash_password, verify_password
+    from .security import hash_password, verify_password, hash_token
 except ImportError:  # pragma: no cover - fallback for script execution
   from database import Base, engine, get_db  # type: ignore
-  from models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel, UserMethodPermissionModel  # type: ignore
+  from models import ActionBatchModel, ActionBatchStatus, AuditLogModel, ConflictModel, ConflictStatus, FilterMethodModel, SampleModel, SampleStatus, PlannedAnalysisModel, PlannedAnalysisAssigneeModel, AnalysisStatus, UserModel, UserMethodPermissionModel, PasswordResetTokenModel  # type: ignore
   from schemas import ActionBatchCreate, ActionBatchOut, AuditEventOut, ConflictCreate, ConflictOut, ConflictUpdate, FilterMethodsOut, FilterMethodsUpdate, PlannedAnalysisCreate, PlannedAnalysisOut, PlannedAnalysisUpdate, UserOut, UserCreate, UserCreateOut, UserUpdate  # type: ignore
   from seed import seed_users  # type: ignore
-  from security import hash_password, verify_password  # type: ignore
+  from security import hash_password, verify_password, hash_token  # type: ignore
 
 app = FastAPI(title="LabSync backend", version="0.1.0")
 
@@ -29,6 +32,13 @@ DEFAULT_METHOD_PERMISSIONS = ["SARA", "IR", "Mass Spectrometry", "Viscosity"]
 APP_ENV = (os.getenv("APP_ENV") or "development").strip().lower()
 IS_PRODUCTION = APP_ENV in {"prod", "production"}
 BOOTSTRAP_ADMIN_PASSWORD = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "admin")
+PASSWORD_RESET_TTL_MINUTES = int(os.getenv("PASSWORD_RESET_TTL_MINUTES", "30"))
+SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "").strip()
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "").strip()
+SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER or "no-reply@labsync.local").strip()
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://127.0.0.1:8080").strip()
 
 if IS_PRODUCTION and BOOTSTRAP_ADMIN_PASSWORD == "admin":
   raise RuntimeError("Set BOOTSTRAP_ADMIN_PASSWORD in production; default 'admin' is blocked.")
@@ -69,6 +79,21 @@ class ChangePasswordRequest(BaseModel):
   new_password: str
 
 
+class RequestPasswordResetRequest(BaseModel):
+  username: str
+  email: str
+
+
+class RequestPasswordResetResponse(BaseModel):
+  message: str
+  reset_token: str | None = None
+
+
+class ConfirmPasswordResetRequest(BaseModel):
+  token: str
+  new_password: str
+
+
 def get_user_from_authorization(authorization: str | None, db: Session) -> tuple[UserModel, str]:
   if not authorization or not authorization.lower().startswith("bearer "):
     raise HTTPException(status_code=401, detail="Unauthorized")
@@ -84,6 +109,28 @@ def get_user_from_authorization(authorization: str | None, db: Session) -> tuple
   return user, token
 
 
+def send_password_reset_email(email: str, token: str):
+  if not SMTP_HOST:
+    return
+  reset_link = f"{FRONTEND_BASE_URL}/login?resetToken={token}"
+  message = EmailMessage()
+  message["Subject"] = "LabSync password reset"
+  message["From"] = SMTP_FROM
+  message["To"] = email
+  message.set_content(
+    "Use the following token to reset your password:\n"
+    f"{token}\n\n"
+    "Or open this link:\n"
+    f"{reset_link}\n\n"
+    f"Token expires in {PASSWORD_RESET_TTL_MINUTES} minutes."
+  )
+  with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as smtp:
+    smtp.starttls()
+    if SMTP_USER and SMTP_PASSWORD:
+      smtp.login(SMTP_USER, SMTP_PASSWORD)
+    smtp.send_message(message)
+
+
 @app.post("/auth/login", response_model=LoginResponse)
 async def login(payload: LoginRequest, db: Session = Depends(get_db)):
   username = payload.username.strip()
@@ -96,6 +143,121 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db)):
   roles = parse_roles(user.roles)
   return LoginResponse(
     token=token,
+    role=roles[0] if roles else user.role,
+    roles=roles,
+    full_name=user.full_name,
+    must_change_password=bool(user.must_change_password),
+  )
+
+
+@app.post("/auth/request-password-reset", response_model=RequestPasswordResetResponse)
+async def request_password_reset(payload: RequestPasswordResetRequest, db: Session = Depends(get_db)):
+  username = (payload.username or "").strip()
+  email = (payload.email or "").strip().lower()
+  if not username:
+    raise HTTPException(status_code=400, detail="Username is required")
+  if not email:
+    raise HTTPException(status_code=400, detail="Email is required")
+  user = db.execute(
+    select(UserModel).where(UserModel.username == username, UserModel.email == email)
+  ).scalars().first()
+  if user is None:
+    return RequestPasswordResetResponse(message="If that email exists, a reset email has been sent.")
+  if not user.is_active:
+    return RequestPasswordResetResponse(message="If that email exists, a reset email has been sent.")
+  now_iso = datetime.now(timezone.utc).isoformat()
+  db.execute(
+    delete(PasswordResetTokenModel).where(
+      PasswordResetTokenModel.user_id == user.id,
+      PasswordResetTokenModel.used_at.is_(None),
+    )
+  )
+  raw_token = secrets.token_urlsafe(32)
+  expires_at = datetime.now(timezone.utc).timestamp() + PASSWORD_RESET_TTL_MINUTES * 60
+  expires_iso = datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat()
+  db.add(
+    PasswordResetTokenModel(
+      user_id=user.id,
+      token_hash=hash_token(raw_token),
+      requested_at=now_iso,
+      expires_at=expires_iso,
+      used_at=None,
+    )
+  )
+  db.commit()
+  try:
+    send_password_reset_email(email, raw_token)
+  except Exception:
+    # Do not leak transport details to clients.
+    pass
+  log_audit(
+    db,
+    entity_type="user",
+    entity_id=str(user.id),
+    action="password_reset_requested",
+    performed_by=user.username,
+    details=f"username={username};email={email}",
+  )
+  # In development, expose token in response for testing without SMTP.
+  dev_token = raw_token if not IS_PRODUCTION and not SMTP_HOST else None
+  return RequestPasswordResetResponse(
+    message="If that email exists, a reset email has been sent.",
+    reset_token=dev_token,
+  )
+
+
+@app.post("/auth/confirm-password-reset", response_model=LoginResponse)
+async def confirm_password_reset(payload: ConfirmPasswordResetRequest, db: Session = Depends(get_db)):
+  token = (payload.token or "").strip()
+  if not token:
+    raise HTTPException(status_code=400, detail="Reset token is required")
+  new_password = (payload.new_password or "").strip()
+  if len(new_password) < 8:
+    raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
+  now_iso = datetime.now(timezone.utc).isoformat()
+  hashed = hash_token(token)
+  reset_row = db.execute(
+    select(PasswordResetTokenModel).where(PasswordResetTokenModel.token_hash == hashed)
+  ).scalars().first()
+  if not reset_row or reset_row.used_at is not None:
+    raise HTTPException(status_code=400, detail="Invalid reset token")
+  try:
+    expires_at_dt = datetime.fromisoformat(reset_row.expires_at)
+  except Exception:
+    raise HTTPException(status_code=400, detail="Reset token is invalid")
+  if expires_at_dt <= datetime.now(timezone.utc):
+    raise HTTPException(status_code=400, detail="Reset token expired")
+  user = db.get(UserModel, reset_row.user_id)
+  if not user or not user.is_active:
+    raise HTTPException(status_code=400, detail="Reset token is invalid")
+  if verify_password(new_password, user.password_hash):
+    raise HTTPException(status_code=400, detail="New password must be different")
+  user.password_hash = hash_password(new_password)
+  user.must_change_password = False
+  user.password_changed_at = now_iso
+  reset_row.used_at = now_iso
+  db.execute(
+    delete(PasswordResetTokenModel).where(
+      PasswordResetTokenModel.user_id == user.id,
+      PasswordResetTokenModel.id != reset_row.id,
+    )
+  )
+  db.add(user)
+  db.add(reset_row)
+  db.commit()
+  db.refresh(user)
+  log_audit(
+    db,
+    entity_type="user",
+    entity_id=str(user.id),
+    action="password_reset_completed",
+    performed_by=user.username,
+    details="email_flow",
+  )
+  token_out = f"fake-{user.id}"
+  roles = parse_roles(user.roles)
+  return LoginResponse(
+    token=token_out,
     role=roles[0] if roles else user.role,
     roles=roles,
     full_name=user.full_name,

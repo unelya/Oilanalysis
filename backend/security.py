@@ -40,3 +40,6 @@ def verify_password(password: str, password_hash: str | None) -> bool:
     except Exception:
         return False
 
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()

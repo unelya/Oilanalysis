@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Lock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,12 +18,28 @@ const Login = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+  const [forgotMode, setForgotMode] = useState<"request" | "confirm" | null>(null);
+  const [forgotUsername, setForgotUsername] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotToken, setForgotToken] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   if (user && !user.mustChangePassword) {
     return <Navigate to="/board" replace />;
   }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const token = new URLSearchParams(window.location.search).get("resetToken");
+    if (!token) return;
+    setForgotToken(token);
+    setForgotMode("confirm");
+  }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +93,84 @@ const Login = () => {
     }
   };
 
+  const requestPasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setForgotMessage("");
+    if (!forgotUsername.trim()) {
+      setError("Username is required.");
+      return;
+    }
+    if (!forgotEmail.trim()) {
+      setError("Email is required.");
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const res = await fetch("/api/auth/request-password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: forgotUsername.trim(), email: forgotEmail.trim().toLowerCase() }),
+      });
+      const payload = (await res.json()) as { message?: string; reset_token?: string; detail?: string };
+      if (!res.ok) {
+        throw new Error(payload.detail || `Request failed: ${res.status}`);
+      }
+      setForgotMessage(payload.message || "If that email exists, a reset email has been sent.");
+      if (payload.reset_token) {
+        setForgotToken(payload.reset_token);
+      }
+      setForgotMode("confirm");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to request password reset.");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const confirmPasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setForgotMessage("");
+    const token = forgotToken.trim();
+    const nextPassword = forgotNewPassword.trim();
+    if (!token) {
+      setError("Reset token is required.");
+      return;
+    }
+    if (nextPassword.length < 8) {
+      setError("New password must be at least 8 characters.");
+      return;
+    }
+    if (nextPassword !== forgotConfirmPassword) {
+      setError("New password and confirmation do not match.");
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const res = await fetch("/api/auth/confirm-password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, new_password: nextPassword }),
+      });
+      const payload = (await res.json()) as { detail?: string };
+      if (!res.ok) {
+        throw new Error(payload.detail || `Reset failed: ${res.status}`);
+      }
+      setForgotMessage("Password reset completed. You can now sign in with your new password.");
+      setForgotMode(null);
+      setPassword("");
+      setShowPassword(false);
+      setForgotToken("");
+      setForgotNewPassword("");
+      setForgotConfirmPassword("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reset password.");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
@@ -96,7 +190,7 @@ const Login = () => {
             </div>
           </div>
 
-          {!user?.mustChangePassword ? (
+          {!user?.mustChangePassword && !forgotMode ? (
             <form onSubmit={onSubmit} className="space-y-3">
               <div className="space-y-1">
                 <Label htmlFor="username">Username</Label>
@@ -140,7 +234,18 @@ const Login = () => {
                   <Checkbox checked={remember} onCheckedChange={(value) => setRemember(Boolean(value))} />
                   <span>Remember me</span>
                 </label>
-                <Link to="/login" className="text-sm text-primary hover:underline">
+                <Link
+                  to="/login"
+                  className="text-sm text-primary hover:underline"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setForgotMode("request");
+                    setForgotMessage("");
+                    setError("");
+                    setForgotUsername("");
+                    setForgotEmail("");
+                  }}
+                >
                   Forgot password?
                 </Link>
               </div>
@@ -153,6 +258,105 @@ const Login = () => {
                   Session will end when you sign out or clear browser data.
                 </p>
               )}
+            </form>
+          ) : !user?.mustChangePassword && forgotMode === "request" ? (
+            <form onSubmit={requestPasswordReset} className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Enter your username and account email. We will send a password reset token.
+              </p>
+              <div className="space-y-1">
+                <Label htmlFor="forgot-username">Username</Label>
+                <Input
+                  id="forgot-username"
+                  value={forgotUsername}
+                  onChange={(e) => setForgotUsername(e.target.value)}
+                  autoComplete="username"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="forgot-email">Email</Label>
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  autoComplete="email"
+                  required
+                />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              {forgotMessage && <p className="text-sm text-muted-foreground">{forgotMessage}</p>}
+              <Button type="submit" className="w-full" disabled={forgotLoading}>
+                {forgotLoading ? "Sending..." : "Send reset token"}
+              </Button>
+              <Button
+                type="button"
+                className="w-full"
+                variant="outline"
+                onClick={() => {
+                  setForgotMode(null);
+                  setForgotMessage("");
+                  setError("");
+                }}
+              >
+                Back to sign in
+              </Button>
+            </form>
+          ) : !user?.mustChangePassword && forgotMode === "confirm" ? (
+            <form onSubmit={confirmPasswordReset} className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Enter reset token and set a new password.
+              </p>
+              <div className="space-y-1">
+                <Label htmlFor="forgot-token">Reset token</Label>
+                <Input
+                  id="forgot-token"
+                  value={forgotToken}
+                  onChange={(e) => setForgotToken(e.target.value)}
+                  autoComplete="off"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="forgot-new-password">New password</Label>
+                <Input
+                  id="forgot-new-password"
+                  type="password"
+                  value={forgotNewPassword}
+                  onChange={(e) => setForgotNewPassword(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="forgot-confirm-password">Confirm new password</Label>
+                <Input
+                  id="forgot-confirm-password"
+                  type="password"
+                  value={forgotConfirmPassword}
+                  onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              {forgotMessage && <p className="text-sm text-muted-foreground">{forgotMessage}</p>}
+              <Button type="submit" className="w-full" disabled={forgotLoading}>
+                {forgotLoading ? "Resetting..." : "Reset password"}
+              </Button>
+              <Button
+                type="button"
+                className="w-full"
+                variant="outline"
+                onClick={() => {
+                  setForgotMode(null);
+                  setForgotMessage("");
+                  setError("");
+                }}
+              >
+                Back to sign in
+              </Button>
             </form>
           ) : (
             <form onSubmit={onChangePassword} className="space-y-3">

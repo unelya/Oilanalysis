@@ -26,6 +26,91 @@ def test_auth_requires_valid_password_and_forces_password_change(client):
     assert new_password_login.json()["must_change_password"] is False
 
 
+def test_password_recovery_flow_by_email(client):
+    create_res = client.post(
+        "/admin/users",
+        json={"username": "recovery.user", "full_name": "Recovery User", "email": "recovery@example.com", "role": "lab_operator"},
+        headers={"x-role": "admin"},
+    )
+    assert create_res.status_code == 201
+
+    request_res = client.post(
+        "/auth/request-password-reset",
+        json={"username": "recovery.user", "email": "recovery@example.com"},
+    )
+    assert request_res.status_code == 200
+    request_data = request_res.json()
+    assert "message" in request_data
+    assert request_data.get("reset_token")
+    reset_token = request_data["reset_token"]
+
+    confirm_res = client.post(
+        "/auth/confirm-password-reset",
+        json={"token": reset_token, "new_password": "Recovered123"},
+    )
+    assert confirm_res.status_code == 200
+    assert confirm_res.json()["must_change_password"] is False
+
+    login_old = client.post("/auth/login", json={"username": "recovery.user", "password": "Tatneft123"})
+    assert login_old.status_code == 401
+
+    login_new = client.post("/auth/login", json={"username": "recovery.user", "password": "Recovered123"})
+    assert login_new.status_code == 200
+    assert login_new.json()["must_change_password"] is False
+
+
+def test_password_recovery_rejects_same_password(client):
+    create_res = client.post(
+        "/admin/users",
+        json={"username": "same.password.user", "full_name": "Same Password User", "email": "same.password@example.com", "role": "lab_operator"},
+        headers={"x-role": "admin"},
+    )
+    assert create_res.status_code == 201
+
+    request_res = client.post(
+        "/auth/request-password-reset",
+        json={"username": "same.password.user", "email": "same.password@example.com"},
+    )
+    assert request_res.status_code == 200
+    token = request_res.json().get("reset_token")
+    assert token
+
+    confirm_res = client.post(
+        "/auth/confirm-password-reset",
+        json={"token": token, "new_password": "Tatneft123"},
+    )
+    assert confirm_res.status_code == 400
+
+
+def test_password_recovery_requires_matching_username_and_email(client):
+    create_one = client.post(
+        "/admin/users",
+        json={"username": "dup.recover.1", "full_name": "Dup Recover One", "email": "dup.recover@example.com", "role": "warehouse_worker"},
+        headers={"x-role": "admin"},
+    )
+    assert create_one.status_code == 201
+    create_two = client.post(
+        "/admin/users",
+        json={"username": "dup.recover.2", "full_name": "Dup Recover Two", "email": "dup.recover@example.com", "role": "lab_operator"},
+        headers={"x-role": "admin"},
+    )
+    assert create_two.status_code == 201
+
+    wrong_username = client.post(
+        "/auth/request-password-reset",
+        json={"username": "unknown-user", "email": "dup.recover@example.com"},
+    )
+    assert wrong_username.status_code == 200
+    assert wrong_username.json().get("reset_token") in (None, "")
+
+    request_res = client.post(
+        "/auth/request-password-reset",
+        json={"username": "dup.recover.2", "email": "dup.recover@example.com"},
+    )
+    assert request_res.status_code == 200
+    assert request_res.json().get("reset_token")
+
+
 def test_sample_to_analysis_workflow(client):
     sample_payload = {
         "sample_id": "S-100",
