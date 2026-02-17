@@ -56,13 +56,21 @@ const Admin = () => {
   const [newFullName, setNewFullName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newRole, setNewRole] = useState("lab_operator");
+  const [usernameEditorOpen, setUsernameEditorOpen] = useState(false);
+  const [usernameConfirmOpen, setUsernameConfirmOpen] = useState(false);
+  const [fullNameEditorOpen, setFullNameEditorOpen] = useState(false);
+  const [fullNameConfirmOpen, setFullNameConfirmOpen] = useState(false);
   const [emailEditorOpen, setEmailEditorOpen] = useState(false);
   const [emailConfirmOpen, setEmailConfirmOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<{ id: number; username: string; currentEmail: string }>({
+  const [editingUser, setEditingUser] = useState<{ id: number; username: string; currentUsername: string; currentFullName: string; currentEmail: string }>({
     id: 0,
     username: "",
+    currentUsername: "",
+    currentFullName: "",
     currentEmail: "",
   });
+  const [editingUsername, setEditingUsername] = useState("");
+  const [editingFullName, setEditingFullName] = useState("");
   const [editingEmail, setEditingEmail] = useState("");
   const [events, setEvents] = useState<AdminEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
@@ -219,9 +227,139 @@ const Admin = () => {
     }
   };
 
-  const openEmailEditor = (user: { id: number; username: string; email?: string | null }) => {
+  const openUsernameEditor = (user: { id: number; username: string; full_name: string; email?: string | null }) => {
     const currentEmail = (user.email ?? "").trim().toLowerCase();
-    setEditingUser({ id: user.id, username: user.username, currentEmail });
+    setEditingUser({
+      id: user.id,
+      username: user.username,
+      currentUsername: user.username,
+      currentFullName: user.full_name,
+      currentEmail,
+    });
+    setEditingUsername(user.username);
+    setUsernameEditorOpen(true);
+  };
+
+  const requestUsernameUpdate = () => {
+    const nextUsername = editingUsername.trim();
+    if (!nextUsername) {
+      toast({ title: "Username required", variant: "destructive" });
+      return;
+    }
+    if (nextUsername === editingUser.currentUsername) {
+      setUsernameEditorOpen(false);
+      return;
+    }
+    setUsernameConfirmOpen(true);
+  };
+
+  const confirmUsernameUpdate = async () => {
+    const nextUsername = editingUsername.trim();
+    if (!nextUsername) return;
+    setUsernameConfirmOpen(false);
+    setSavingId(editingUser.id);
+    try {
+      const updated = await updateUser(editingUser.id, { username: nextUsername });
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === editingUser.id
+            ? {
+                ...u,
+                username: updated.username,
+                full_name: updated.full_name,
+                email: updated.email,
+                role: updated.role,
+                roles: updated.roles,
+                method_permissions: updated.method_permissions || u.method_permissions,
+              }
+            : u
+        )
+      );
+      setUsernameEditorOpen(false);
+      void loadEvents();
+      toast({ title: "Username updated" });
+    } catch (err) {
+      toast({
+        title: "Failed to update username",
+        description: err instanceof Error ? err.message : "Backend unreachable",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const openFullNameEditor = (user: { id: number; username: string; full_name: string; email?: string | null }) => {
+    const currentEmail = (user.email ?? "").trim().toLowerCase();
+    setEditingUser({
+      id: user.id,
+      username: user.username,
+      currentUsername: user.username,
+      currentFullName: user.full_name,
+      currentEmail,
+    });
+    setEditingFullName(user.full_name);
+    setFullNameEditorOpen(true);
+  };
+
+  const requestFullNameUpdate = () => {
+    const nextFullName = editingFullName.trim();
+    if (!nextFullName) {
+      toast({ title: "Full name required", variant: "destructive" });
+      return;
+    }
+    if (nextFullName === editingUser.currentFullName) {
+      setFullNameEditorOpen(false);
+      return;
+    }
+    setFullNameConfirmOpen(true);
+  };
+
+  const confirmFullNameUpdate = async () => {
+    const nextFullName = editingFullName.trim();
+    if (!nextFullName) return;
+    setFullNameConfirmOpen(false);
+    setSavingId(editingUser.id);
+    try {
+      const updated = await updateUser(editingUser.id, { full_name: nextFullName });
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === editingUser.id
+            ? {
+                ...u,
+                username: updated.username,
+                full_name: updated.full_name,
+                email: updated.email,
+                role: updated.role,
+                roles: updated.roles,
+                method_permissions: updated.method_permissions || u.method_permissions,
+              }
+            : u
+        )
+      );
+      setFullNameEditorOpen(false);
+      void loadEvents();
+      toast({ title: "Full name updated" });
+    } catch (err) {
+      toast({
+        title: "Failed to update full name",
+        description: err instanceof Error ? err.message : "Backend unreachable",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const openEmailEditor = (user: { id: number; username: string; full_name: string; email?: string | null }) => {
+    const currentEmail = (user.email ?? "").trim().toLowerCase();
+    setEditingUser({
+      id: user.id,
+      username: user.username,
+      currentUsername: user.username,
+      currentFullName: user.full_name,
+      currentEmail,
+    });
     setEditingEmail(currentEmail);
     setEmailEditorOpen(true);
   };
@@ -362,8 +500,32 @@ const Admin = () => {
             <div className="divide-y divide-border/60">
               {users.map((user) => (
                 <div key={user.id} className={`grid ${userGridCols} gap-3 items-start px-4 py-3 text-sm text-foreground`}>
-                  <div className="font-mono text-primary">{user.username}</div>
-                  <div>{user.full_name}</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="truncate font-mono text-primary">{user.username}</div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => openUsernameEditor(user)}
+                      disabled={savingId === user.id}
+                      aria-label={`Change username for ${user.username}`}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="truncate">{user.full_name}</div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => openFullNameEditor(user)}
+                      disabled={savingId === user.id}
+                      aria-label={`Change full name for ${user.username}`}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                   <div className="flex items-center justify-between gap-2">
                     <div className="truncate text-muted-foreground">{user.email || "—"}</div>
                     <Button
@@ -609,6 +771,90 @@ const Admin = () => {
         </div>
       </div>
       <BackToTopButton />
+      <Dialog open={usernameEditorOpen} onOpenChange={setUsernameEditorOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update username</DialogTitle>
+            <DialogDescription>
+              Change the username for <span className="font-medium text-foreground">{editingUser.username}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="edit-user-username">Username</Label>
+            <Input
+              id="edit-user-username"
+              value={editingUsername}
+              onChange={(e) => setEditingUsername(e.target.value)}
+              placeholder="e.g. lab.tech"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUsernameEditorOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={requestUsernameUpdate} disabled={savingId === editingUser.id}>
+              Save username
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={usernameConfirmOpen} onOpenChange={setUsernameConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm username change</AlertDialogTitle>
+            <AlertDialogDescription>
+              Update username from <span className="font-medium text-foreground">{editingUser.currentUsername}</span> to{" "}
+              <span className="font-medium text-foreground">{editingUsername.trim()}</span>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmUsernameUpdate}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <Dialog open={fullNameEditorOpen} onOpenChange={setFullNameEditorOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update full name</DialogTitle>
+            <DialogDescription>
+              Change the full name for <span className="font-medium text-foreground">{editingUser.username}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="edit-user-full-name">Full name</Label>
+            <Input
+              id="edit-user-full-name"
+              value={editingFullName}
+              onChange={(e) => setEditingFullName(e.target.value)}
+              placeholder="e.g. Ivan Petrov"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFullNameEditorOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={requestFullNameUpdate} disabled={savingId === editingUser.id}>
+              Save full name
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={fullNameConfirmOpen} onOpenChange={setFullNameConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm full name change</AlertDialogTitle>
+            <AlertDialogDescription>
+              Update full name from <span className="font-medium text-foreground">{editingUser.currentFullName}</span> to{" "}
+              <span className="font-medium text-foreground">{editingFullName.trim()}</span>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmFullNameUpdate}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Dialog open={emailEditorOpen} onOpenChange={setEmailEditorOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

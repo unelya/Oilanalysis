@@ -158,6 +158,14 @@ async def update_sample(sample_id: str, payload: dict, request: Request, db: Ses
   row = db.get(SampleModel, sample_id)
   if not row:
     raise HTTPException(status_code=404, detail="Sample not found")
+  old_values = {
+    "well_id": row.well_id,
+    "horizon": row.horizon,
+    "sampling_date": row.sampling_date,
+    "status": row.status.value,
+    "storage_location": row.storage_location or "",
+    "assigned_to": row.assigned_to or "",
+  }
   old_status = row.status.value
   for key, value in payload.items():
     if key == "status":
@@ -169,9 +177,39 @@ async def update_sample(sample_id: str, payload: dict, request: Request, db: Ses
   db.add(row)
   db.commit()
   db.refresh(row)
-  if "status" in payload:
-    actor = request.headers.get("x-user")
-    log_audit(db, entity_type="sample", entity_id=sample_id, action="status_change", performed_by=actor, details=f"{old_status}->{payload['status']}")
+  actor = request.headers.get("x-user")
+  new_values = {
+    "well_id": row.well_id,
+    "horizon": row.horizon,
+    "sampling_date": row.sampling_date,
+    "status": row.status.value,
+    "storage_location": row.storage_location or "",
+    "assigned_to": row.assigned_to or "",
+  }
+  if "status" in payload and old_status != row.status.value:
+    log_audit(
+      db,
+      entity_type="sample",
+      entity_id=sample_id,
+      action="status_change",
+      performed_by=actor,
+      details=f"status:{old_status}->{row.status.value}",
+    )
+  detail_parts: list[str] = []
+  for key in ("well_id", "horizon", "sampling_date", "storage_location", "assigned_to"):
+    if key not in payload:
+      continue
+    if old_values[key] != new_values[key]:
+      detail_parts.append(f"{key}:{old_values[key]}->{new_values[key]}")
+  if detail_parts:
+    log_audit(
+      db,
+      entity_type="sample",
+      entity_id=sample_id,
+      action="updated",
+      performed_by=actor,
+      details=";".join(detail_parts),
+    )
   return to_sample_out(row)
 
 
@@ -334,10 +372,10 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
   if not row:
     raise HTTPException(status_code=404, detail="Planned analysis not found")
   old_status = row.status.value
+  prev_assignees = get_assignees(db, row.id, row.assigned_to)
   if payload.status:
     row.status = AnalysisStatus(payload.status)
   if payload.assigned_to is not None:
-    prev_assignees = get_assignees(db, row.id, row.assigned_to)
     actor_identity = (request.headers.get("x-user") or "").strip()
     actor_user = find_user_by_identity(db, actor_identity)
     is_admin = is_admin_from_headers(request) or (actor_user is not None and has_role(actor_user, "admin"))
@@ -386,12 +424,21 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
   db.add(row)
   db.commit()
   db.refresh(row)
-  if payload.status:
+  if payload.status and old_status != row.status.value:
     actor = request.headers.get("x-user")
-    log_audit(db, entity_type="planned_analysis", entity_id=str(analysis_id), action="status_change", performed_by=actor, details=f"{old_status}->{payload.status}")
+    log_audit(
+      db,
+      entity_type="planned_analysis",
+      entity_id=str(analysis_id),
+      action="status_change",
+      performed_by=actor,
+      details=f"status:{old_status}->{row.status.value}",
+    )
   if payload.assigned_to is not None:
     actor = request.headers.get("x-user")
     next_assignees = assignees
+    old_assignees_text = ",".join(prev_assignees)
+    new_assignees_text = ",".join(next_assignees)
     added = [name for name in next_assignees if name not in prev_assignees]
     removed = [name for name in prev_assignees if name not in next_assignees]
     for target in added:
@@ -401,7 +448,7 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
         entity_id=str(analysis_id),
         action="operator_assigned",
         performed_by=actor,
-        details=f"sample={row.sample_id};method={row.analysis_type};target={target}",
+        details=f"sample={row.sample_id};method={row.analysis_type};target={target};assignees:{old_assignees_text}->{new_assignees_text}",
       )
     for target in removed:
       log_audit(
@@ -410,7 +457,7 @@ async def update_planned_analysis(analysis_id: int, payload: PlannedAnalysisUpda
         entity_id=str(analysis_id),
         action="operator_unassigned",
         performed_by=actor,
-        details=f"sample={row.sample_id};method={row.analysis_type};target={target}",
+        details=f"sample={row.sample_id};method={row.analysis_type};target={target};assignees:{old_assignees_text}->{new_assignees_text}",
       )
   return to_planned_out(row, db)
 
@@ -487,6 +534,7 @@ async def update_conflict(conflict_id: int, payload: ConflictUpdate, request: Re
   if not row:
     raise HTTPException(status_code=404, detail="Conflict not found")
   old_status = row.status.value
+  old_resolution_note = row.resolution_note or ""
   if payload.status:
     row.status = ConflictStatus(payload.status)
   if payload.resolution_note is not None:
@@ -497,9 +545,25 @@ async def update_conflict(conflict_id: int, payload: ConflictUpdate, request: Re
   db.add(row)
   db.commit()
   db.refresh(row)
-  if payload.status:
-    actor = request.headers.get("x-user") or row.updated_by
-    log_audit(db, entity_type="conflict", entity_id=str(conflict_id), action="status_change", performed_by=actor, details=f"{old_status}->{payload.status}")
+  actor = request.headers.get("x-user") or row.updated_by
+  if payload.status and old_status != row.status.value:
+    log_audit(
+      db,
+      entity_type="conflict",
+      entity_id=str(conflict_id),
+      action="status_change",
+      performed_by=actor,
+      details=f"status:{old_status}->{row.status.value}",
+    )
+  if payload.resolution_note is not None and old_resolution_note != (row.resolution_note or ""):
+    log_audit(
+      db,
+      entity_type="conflict",
+      entity_id=str(conflict_id),
+      action="updated",
+      performed_by=actor,
+      details=f"resolution_note:{old_resolution_note}->{row.resolution_note or ''}",
+    )
   return to_conflict_out(row)
 
 
@@ -706,6 +770,26 @@ async def update_user(user_id: int, payload: UserUpdate, request: Request, db: S
   row = db.get(UserModel, user_id)
   if not row:
     raise HTTPException(status_code=404, detail="User not found")
+  old_username = row.username
+  old_full_name = row.full_name
+  old_email = row.email or ""
+  old_roles = parse_roles(row.roles) or [row.role]
+  old_methods = get_user_method_permissions(db, row.id)
+  if payload.username is not None:
+    next_username = payload.username.strip()
+    if not next_username:
+      raise HTTPException(status_code=400, detail="Username required")
+    existing_username = db.execute(
+      select(UserModel).where(UserModel.username == next_username, UserModel.id != user_id)
+    ).scalars().first()
+    if existing_username:
+      raise HTTPException(status_code=400, detail="Username already exists")
+    row.username = next_username
+  if payload.full_name is not None:
+    next_full_name = payload.full_name.strip()
+    if not next_full_name:
+      raise HTTPException(status_code=400, detail="Full name required")
+    row.full_name = next_full_name
   if payload.email is not None:
     next_email = str(payload.email).strip().lower()
     existing_email = db.execute(
@@ -728,13 +812,28 @@ async def update_user(user_id: int, payload: UserUpdate, request: Request, db: S
   db.commit()
   db.refresh(row)
   actor = request.headers.get("x-user")
+  new_roles = parse_roles(row.roles) or [row.role]
+  new_methods = get_user_method_permissions(db, row.id)
+  detail_parts: list[str] = []
+  if old_username != row.username:
+    detail_parts.append(f"username:{old_username}->{row.username}")
+  if old_full_name != row.full_name:
+    detail_parts.append(f"full_name:{old_full_name}->{row.full_name}")
+  if old_email != (row.email or ""):
+    detail_parts.append(f"email:{old_email}->{row.email or ''}")
+  if old_roles != new_roles:
+    detail_parts.append(f"roles:{','.join(old_roles)}->{','.join(new_roles)}")
+  if old_methods != new_methods:
+    detail_parts.append(f"methods:{','.join(old_methods)}->{','.join(new_methods)}")
+  if not detail_parts:
+    detail_parts.append("no_changes")
   log_audit(
     db,
     entity_type="user",
     entity_id=str(row.id),
     action="updated",
     performed_by=actor,
-    details=f"username={row.username};roles={row.roles};methods={','.join(get_user_method_permissions(db, row.id))}",
+    details=";".join(detail_parts),
   )
   return UserOut(
     id=row.id,
@@ -742,8 +841,8 @@ async def update_user(user_id: int, payload: UserUpdate, request: Request, db: S
     full_name=row.full_name,
     email=row.email,
     role=row.role,
-    roles=parse_roles(row.roles) or [row.role],
-    method_permissions=get_user_method_permissions(db, row.id),
+    roles=new_roles,
+    method_permissions=new_methods,
   )
 
 

@@ -234,7 +234,10 @@ export async function createUser(payload: { username: string; fullName: string; 
   return (await res.json()) as { id: number; username: string; full_name: string; email?: string | null; role: string; roles: string[]; method_permissions: string[]; default_password: string };
 }
 
-export async function updateUser(id: number, payload: { roles?: string[]; email?: string; method_permissions?: string[] }) {
+export async function updateUser(
+  id: number,
+  payload: { username?: string; full_name?: string; roles?: string[]; email?: string; method_permissions?: string[] }
+) {
   const res = await fetch(`/api/admin/users/${id}`, {
     method: "PATCH",
     headers: authHeaders(),

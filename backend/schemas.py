@@ -93,6 +93,8 @@ class UserCreateOut(UserOut):
 
 
 class UserUpdate(BaseModel):
+    username: str | None = Field(default=None, min_length=2, max_length=64)
+    full_name: str | None = Field(default=None, min_length=2, max_length=128)
     email: EmailStr | None = None
     role: str | None = Field(default=None, pattern="^(warehouse_worker|lab_operator|action_supervision|admin)$")
     roles: list[str] | None = None

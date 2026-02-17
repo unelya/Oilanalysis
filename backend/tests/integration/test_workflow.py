@@ -12,7 +12,7 @@ def test_sample_to_analysis_workflow(client):
     assert res.status_code == 201
     assert res.json()["sample_id"] == "S-100"
 
-    res = client.patch("/samples/S-100", json={"status": "progress"})
+    res = client.patch("/samples/S-100", json={"status": "progress", "storage_location": "Shelf A2"}, headers={"x-user": "Admin User"})
     assert res.status_code == 200
     assert res.json()["status"] == "progress"
 
@@ -26,6 +26,12 @@ def test_sample_to_analysis_workflow(client):
     res = client.patch(f"/planned-analyses/{analysis['id']}", json={"status": "in_progress"})
     assert res.status_code == 200
     assert res.json()["status"] == "in_progress"
+
+    events = client.get("/admin/events", headers={"x-role": "admin"})
+    assert events.status_code == 200
+    sample_events = [item for item in events.json() if item.get("entity_type") == "sample" and item.get("entity_id") == "S-100"]
+    assert any(item.get("action") == "status_change" and item.get("details") == "status:new->progress" for item in sample_events)
+    assert any(item.get("action") == "updated" and "storage_location:Shelf A->Shelf A2" in (item.get("details") or "") for item in sample_events)
 
 
 def test_action_and_conflict_workflow(client):
@@ -53,6 +59,12 @@ def test_action_and_conflict_workflow(client):
     assert res.json()["status"] == "resolved"
     assert res.json()["resolution_note"] == "fixed"
 
+    events = client.get("/admin/events", headers={"x-role": "admin"})
+    assert events.status_code == 200
+    conflict_events = [item for item in events.json() if item.get("entity_type") == "conflict" and item.get("entity_id") == str(conflict["id"])]
+    assert any(item.get("action") == "status_change" and item.get("details") == "status:open->resolved" for item in conflict_events)
+    assert any(item.get("action") == "updated" and item.get("details") == "resolution_note:->fixed" for item in conflict_events)
+
 
 def test_admin_user_creation_requires_admin(client):
     payload = {"username": "qa.user", "full_name": "QA User", "email": "qa.user@example.com", "role": "lab_operator"}
@@ -66,6 +78,44 @@ def test_admin_user_creation_requires_admin(client):
     assert data["email"] == "qa.user@example.com"
     assert data["role"] == "lab_operator"
     assert data["default_password"] == "Tatneft123"
+
+
+def test_admin_can_update_username_and_full_name(client):
+    payload = {"username": "rename.me", "full_name": "Rename Me", "email": "rename.me@example.com", "role": "lab_operator"}
+    create_res = client.post("/admin/users", json=payload, headers={"x-role": "admin"})
+    assert create_res.status_code == 201
+    user_id = create_res.json()["id"]
+
+    forbidden = client.patch(f"/admin/users/{user_id}", json={"username": "rename.updated"})
+    assert forbidden.status_code == 403
+
+    res = client.patch(
+        f"/admin/users/{user_id}",
+        json={"username": "rename.updated", "full_name": "Rename Updated"},
+        headers={"x-role": "admin"},
+    )
+    assert res.status_code == 200
+    updated = res.json()
+    assert updated["username"] == "rename.updated"
+    assert updated["full_name"] == "Rename Updated"
+
+    second_payload = {"username": "another.user", "full_name": "Another User", "email": "another.user@example.com", "role": "lab_operator"}
+    second = client.post("/admin/users", json=second_payload, headers={"x-role": "admin"})
+    assert second.status_code == 201
+    second_id = second.json()["id"]
+
+    duplicate = client.patch(
+        f"/admin/users/{second_id}",
+        json={"username": "rename.updated"},
+        headers={"x-role": "admin"},
+    )
+    assert duplicate.status_code == 400
+
+    events = client.get("/admin/events", headers={"x-role": "admin"})
+    assert events.status_code == 200
+    event_details = [item.get("details") or "" for item in events.json() if item.get("entity_type") == "user" and item.get("entity_id") == str(user_id)]
+    assert any("username:rename.me->rename.updated" in detail for detail in event_details)
+    assert any("full_name:Rename Me->Rename Updated" in detail for detail in event_details)
 
 
 def test_lab_operator_can_assign_only_self(client):
@@ -120,6 +170,10 @@ def test_admin_can_assign_any_lab_operator(client):
     )
     assert res.status_code == 200
     assert res.json()["assigned_to"] == ["Egg"]
+    events = client.get("/admin/events", headers={"x-role": "admin"})
+    assert events.status_code == 200
+    analysis_events = [item for item in events.json() if item.get("entity_type") == "planned_analysis" and item.get("entity_id") == str(analysis["id"])]
+    assert any(item.get("action") == "operator_assigned" and "assignees:->Egg" in (item.get("details") or "") for item in analysis_events)
 
 
 def test_method_permission_controls_assignment(client):
