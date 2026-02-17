@@ -18,10 +18,14 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: pip install -r backend/requirements.txt -r backend/requirements-dev.txt
-      - name: Run tests
+      - name: Run backend unit tests
         env:
           DATABASE_URL: sqlite+pysqlite:///./test.db
-        run: pytest -q backend/tests
+        run: pytest -q backend/tests/unit
+      - name: Run backend integration tests
+        env:
+          DATABASE_URL: sqlite+pysqlite:///./test.db
+        run: pytest -q backend/tests/integration
 
   frontend-tests:
     runs-on: ubuntu-latest
