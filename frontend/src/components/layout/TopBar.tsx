@@ -77,7 +77,7 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
       
       <div className="flex items-center gap-4">
         <Select value={selectedRole} onValueChange={(val) => onRoleChange?.(val as Role)}>
-          <SelectTrigger className="w-48 h-9 text-sm bg-muted border-border/50">
+          <SelectTrigger className="w-64 h-9 text-sm bg-muted border-border/50">
             <SelectValue placeholder={t("topBar.rolePlaceholder")} />
           </SelectTrigger>
           <SelectContent>

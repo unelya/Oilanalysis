@@ -3,6 +3,7 @@ import { KanbanCard as CardType } from '@/types/kanban';
 import { StatusBadge } from './StatusBadge';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useI18n } from '@/i18n';
 
 interface KanbanCardProps {
   card: CardType;
@@ -27,7 +28,41 @@ interface KanbanCardProps {
   };
 }
 
-export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, readOnlyMethods, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis', analysisLabelMode = 'analysis', showConflictStatus = false, conflictStatusLabel = 'Conflict status' }: KanbanCardProps) {
+export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, readOnlyMethods, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis', analysisLabelMode = 'analysis', showConflictStatus = false, conflictStatusLabel }: KanbanCardProps) {
+  const { t } = useI18n();
+  const translateColumnLabel = (label?: string | null) => {
+    if (!label) return '';
+    const keyByTitle: Record<string, string> = {
+      Planned: "board.columns.planned",
+      "Awaiting arrival": "board.columns.awaiting_arrival",
+      Stored: "board.columns.stored",
+      Issues: "board.columns.issues",
+      "In progress": "board.columns.in_progress",
+      "Needs attention": "board.columns.needs_attention",
+      Completed: "board.columns.completed",
+      "Uploaded batch": "board.columns.uploaded_batch",
+      Conflicts: "board.columns.conflicts",
+      Deleted: "board.columns.deleted",
+    };
+    const key = keyByTitle[label];
+    return key ? t(key) : label;
+  };
+  const assigneeLabel = card.assignedTo?.trim().toLowerCase() === 'unassigned'
+    ? t("board.card.unassigned")
+    : card.assignedTo;
+  const translateStorageLocation = (value?: string | null) => {
+    if (!value) return '';
+    return value
+      .replace(/\bFridge\b/g, t("board.card.fridge"))
+      .replace(/\bBin\b/g, t("board.card.bin"))
+      .replace(/\bPlace\b/g, t("board.card.place"));
+  };
+  const storageLocationLabel = translateStorageLocation(card.storageLocation);
+  const displayAnalysisType = (() => {
+    if (card.analysisType === 'Conflict') return t("board.card.conflict");
+    if (card.analysisType === 'Batch') return t("board.card.batch");
+    return card.analysisType;
+  })();
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Enter') {
       event.preventDefault();
@@ -48,48 +83,49 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
     });
   const analysisBadge = (() => {
     if (analysisLabelMode === 'column') {
-      return { status: card.status, label: card.analysisLabel ?? card.statusLabel };
+      return { status: card.status, label: translateColumnLabel(card.analysisLabel ?? card.statusLabel) };
     }
     const normalized = card.analysisStatus?.toLowerCase() ?? 'planned';
     switch (normalized) {
       case 'in_progress':
-        return { status: 'progress', label: 'In progress' };
+        return { status: 'progress', label: t("board.columns.in_progress") };
       case 'review':
-        return { status: 'review', label: 'Needs attention' };
+        return { status: 'review', label: t("board.columns.needs_attention") };
       case 'completed':
-        return { status: 'done', label: 'Completed' };
+        return { status: 'done', label: t("board.columns.completed") };
       case 'failed':
-        return { status: 'review', label: 'Failed' };
+        return { status: 'review', label: t("board.card.failed") };
       default:
-        return { status: 'new', label: 'Planned' };
+        return { status: 'new', label: t("board.columns.planned") };
     }
   })();
   const warehouseSampleLabelMap: Record<string, string> = {
-    new: 'Planned',
-    progress: 'Awaiting arrival',
-    review: 'Stored',
-    done: 'Issues',
+    new: t("board.columns.planned"),
+    progress: t("board.columns.awaiting_arrival"),
+    review: t("board.columns.stored"),
+    done: t("board.columns.issues"),
   };
   const toDigits = (value: string) => value.replace(/\D/g, '');
   const wellValue = toDigits(card.wellId);
-  const warehouseSampleLabel = warehouseSampleLabelMap[card.status] ?? card.statusLabel;
-  const sampleLabel = statusBadgeMode === 'sample' ? warehouseSampleLabel : card.statusLabel;
+  const warehouseSampleLabel = warehouseSampleLabelMap[card.status] ?? translateColumnLabel(card.statusLabel);
+  const sampleLabel = statusBadgeMode === 'sample' ? warehouseSampleLabel : translateColumnLabel(card.statusLabel);
   const badgeStatus = statusBadgeMode === 'analysis' ? analysisBadge.status : card.status;
   const badgeLabel =
     statusBadgeMode === 'analysis'
       ? analysisBadge.label
       : statusBadgeMode === 'column'
-      ? card.statusLabel
+      ? translateColumnLabel(card.statusLabel)
       : sampleLabel;
-  const statusLineLabel = statusLineMode === 'sample' ? 'Sample' : 'Analysis';
+  const statusLineLabel = statusLineMode === 'sample' ? t("board.card.sample") : t("board.card.analysis");
   const statusLineValue = statusLineMode === 'sample' ? warehouseSampleLabel : analysisBadge.label;
   const showBothStatusLines = statusLineMode === 'both';
   const conflictStatusMap: Record<CardType['status'], { status: CardType['status']; label: string }> = {
-    new: { status: 'new', label: 'Uploaded batch' },
-    progress: { status: 'progress', label: 'Conflicts' },
-    review: { status: 'progress', label: 'Conflicts' },
-    done: { status: 'done', label: 'Stored' },
+    new: { status: 'new', label: t("board.card.uploadedBatch") },
+    progress: { status: 'progress', label: t("board.card.conflicts") },
+    review: { status: 'progress', label: t("board.card.conflicts") },
+    done: { status: 'done', label: t("board.card.stored") },
   };
+  const resolvedConflictStatusLabel = conflictStatusLabel ?? t("board.card.conflictStatus");
   const conflictStatus = conflictStatusMap[card.status];
 
   const handleDragStart = (event: React.DragEvent<HTMLDivElement>) => {
@@ -132,7 +168,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex flex-col gap-1">
           <p className="text-sm font-semibold text-foreground leading-tight">
-            {card.analysisType === 'Sample' ? card.sampleId : card.analysisType}
+            {card.analysisType === 'Sample' ? card.sampleId : displayAnalysisType}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -155,17 +191,17 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
             <>
               <div className="flex items-center gap-2">
                 <ClipboardList className="w-3 h-3 text-primary" />
-                <span className="text-foreground font-medium">Sample: {warehouseSampleLabel}</span>
-                {card.assignedTo && (
+                <span className="text-foreground font-medium">{t("board.card.sample")}: {warehouseSampleLabel}</span>
+                {assigneeLabel && (
                   <span className="flex items-center gap-1">
                     <User className="w-3 h-3" />
-                    <span>{card.assignedTo}</span>
+                    <span>{assigneeLabel}</span>
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-2">
                 <FlaskConical className="w-3 h-3 text-primary" />
-                <span className="text-foreground font-medium">Analysis: {analysisBadge.label}</span>
+                <span className="text-foreground font-medium">{t("board.card.analysis")}: {analysisBadge.label}</span>
               </div>
             </>
             ) : (
@@ -176,10 +212,10 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
                   <FlaskConical className="w-3 h-3 text-primary" />
                 )}
                 <span className="text-foreground font-medium">{statusLineLabel}: {statusLineValue}</span>
-                {card.assignedTo && (
+                {assigneeLabel && (
                   <span className="flex items-center gap-1">
                     <User className="w-3 h-3" />
-                    <span>{card.assignedTo}</span>
+                    <span>{assigneeLabel}</span>
                   </span>
                 )}
               </div>
@@ -187,35 +223,35 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
             {showConflictStatus && (
               <div className="flex items-center gap-2">
                 <CircleDot className="w-3 h-3 text-primary" />
-                <span className="text-foreground font-medium">{conflictStatusLabel}: {conflictStatus.label}</span>
+                <span className="text-foreground font-medium">{resolvedConflictStatusLabel}: {conflictStatus.label}</span>
               </div>
             )}
           </div>
         <div className="flex items-center gap-2">
           <MapPin className="w-3 h-3 text-primary" />
-          <span className="text-foreground font-medium">{card.storageLocation}</span>
+          <span className="text-foreground font-medium">{storageLocationLabel}</span>
         </div>
         <div className="flex items-center gap-2">
           <Calendar className="w-3 h-3" />
-          <span>Sampling {card.samplingDate}</span>
+          <span>{t("board.card.sampling")} {card.samplingDate}</span>
           <span className="flex items-center gap-1 text-foreground font-semibold">
             <CircleDot className="w-3 h-3 text-primary" />
-            Well {wellValue}
+            {t("board.card.well")} {wellValue}
           </span>
-          <span className="text-muted-foreground">Horizon {card.horizon}</span>
+          <span className="text-muted-foreground">{t("board.card.horizon")} {card.horizon}</span>
         </div>
         {card.deletedReason && card.statusLabel?.toLowerCase().includes('deleted') && (
           <div className="text-[11px] text-destructive leading-snug">
-            Reason: {card.deletedReason}
+            {t("board.card.reason")}: {card.deletedReason}
           </div>
         )}
         {card.returnNote ? (
           <div className="text-[11px] text-destructive leading-snug">
-            Return note: {card.returnNote}
+            {t("board.card.returnNote")}: {card.returnNote}
           </div>
         ) : card.issueReason ? (
           <div className="text-[11px] text-destructive leading-snug">
-            Issue: {card.issueReason}
+            {t("board.card.issue")}: {card.issueReason}
           </div>
         ) : null}
         {card.methods && card.methods.length > 0 && (
@@ -240,7 +276,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
                   className="h-3.5 w-3.5 rounded border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white data-[state=checked]:disabled:bg-primary data-[state=checked]:disabled:border-primary data-[state=checked]:disabled:text-white disabled:opacity-100 disabled:cursor-not-allowed"
                 />
                 <span className="truncate flex-1">{m.name}</span>
-                {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">Done</span>}
+                {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">{t("board.card.done")}</span>}
               </label>
                 );
               })()
@@ -263,7 +299,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
                         adminActions.onDelete?.();
                       }}
                     >
-                      Delete
+                      {t("board.card.delete")}
                     </button>
                   )}
                   {adminActions.isStored && adminActions.onRestoreStored && (
@@ -274,7 +310,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
                         adminActions.onRestoreStored?.();
                       }}
                     >
-                      Restore
+                      {t("board.card.restore")}
                     </button>
                   )}
                   {showStatusActions && adminActions.onResolve && (
@@ -285,7 +321,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
                         adminActions.onResolve?.();
                       }}
                     >
-                      Stored as not-resolved
+                      {t("board.card.storedAsNotResolved")}
                     </button>
                   )}
                   {showStatusActions && adminActions.onReturn && (
@@ -296,7 +332,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
                         adminActions.onReturn?.();
                       }}
                     >
-                      Return for analysis
+                      {t("board.card.returnForAnalysis")}
                     </button>
                   )}
                 </>
@@ -309,7 +345,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
                     adminActions.onRestore?.();
                   }}
                 >
-                  Restore
+                  {t("board.card.restore")}
                 </button>
               )}
             </div>

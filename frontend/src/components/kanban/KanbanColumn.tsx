@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 
 interface KanbanColumnProps {
   column: ColumnType;
+  displayTitle?: string;
   onCardClick: (card: CardType) => void;
   onDropCard: (cardId: string) => void;
   showAdd?: boolean;
@@ -37,7 +38,7 @@ const columnColors = {
   done: 'border-t-status-done',
 };
 
-export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false, onAdd, onToggleMethod, canToggleMethod, lockNeedsAttention = false, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis', analysisLabelMode = 'analysis', showConflictStatus = false, conflictStatusLabel, columnColorClass }: KanbanColumnProps) {
+export function KanbanColumn({ column, displayTitle, onCardClick, onDropCard, showAdd = false, onAdd, onToggleMethod, canToggleMethod, lockNeedsAttention = false, adminActions, showStatusActions = false, statusBadgeMode = 'sample', statusLineMode = 'analysis', analysisLabelMode = 'analysis', showConflictStatus = false, conflictStatusLabel, columnColorClass }: KanbanColumnProps) {
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const cardId = event.dataTransfer.getData('text/plain');
@@ -52,7 +53,7 @@ export function KanbanColumn({ column, onCardClick, onDropCard, showAdd = false,
     >
       <div className="flex items-center justify-between p-3 bg-column-header rounded-t-lg">
         <div className="flex items-center gap-2">
-          <h3 className="font-medium text-sm text-foreground">{column.title}</h3>
+          <h3 className="font-medium text-sm text-foreground">{displayTitle ?? column.title}</h3>
           <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground font-mono">
             {column.cards.length}
           </span>

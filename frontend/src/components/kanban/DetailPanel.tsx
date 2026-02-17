@@ -12,6 +12,7 @@ import { Calendar as CalendarCmp } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import { useI18n } from '@/i18n';
 
 interface DetailPanelProps {
   card: KanbanCard | null;
@@ -39,6 +40,7 @@ interface DetailPanelProps {
 }
 
 export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_operator', onPlanAnalysis, onAssignOperator, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [], comments = [], issueHistoryTimestamps = [], returnNoteTimestamps = [], onAddComment, currentUserName }: DetailPanelProps) {
+  const { t } = useI18n();
   const card: KanbanCard = cardProp ?? {
     id: '',
     status: 'new',
@@ -87,34 +89,53 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
     const normalized = card.analysisStatus?.toLowerCase() ?? 'planned';
     switch (normalized) {
       case 'in_progress':
-        return { status: 'progress', label: 'In progress' };
+        return { status: 'progress', label: t("board.columns.in_progress") };
       case 'review':
-        return { status: 'review', label: 'Needs attention' };
+        return { status: 'review', label: t("board.columns.needs_attention") };
       case 'completed':
-        return { status: 'done', label: 'Completed' };
+        return { status: 'done', label: t("board.columns.completed") };
       case 'failed':
-        return { status: 'review', label: 'Failed' };
+        return { status: 'review', label: t("board.card.failed") };
       default:
-        return { status: 'new', label: 'Planned' };
+        return { status: 'new', label: t("board.columns.planned") };
     }
   })();
+  const translateColumnLabel = (label?: string | null) => {
+    if (!label) return '';
+    const normalized = label.trim().toLowerCase();
+    const keyByTitle: Record<string, string> = {
+      planned: "board.columns.planned",
+      "awaiting arrival": "board.columns.awaiting_arrival",
+      stored: "board.columns.stored",
+      issues: "board.columns.issues",
+      "in progress": "board.columns.in_progress",
+      "needs attention": "board.columns.needs_attention",
+      completed: "board.columns.completed",
+      "uploaded batch": "board.columns.uploaded_batch",
+      conflicts: "board.columns.conflicts",
+      deleted: "board.columns.deleted",
+      resolved: "board.card.resolved",
+    };
+    const key = keyByTitle[normalized];
+    return key ? t(key) : label;
+  };
   const analysisBadgeDisplay = card.analysisLabel
-    ? { ...analysisBadge, label: card.analysisLabel }
+    ? { ...analysisBadge, label: translateColumnLabel(card.analysisLabel) }
     : role === 'lab_operator'
-    ? { status: card.status, label: card.statusLabel || 'Planned' }
+    ? { status: card.status, label: translateColumnLabel(card.statusLabel) || t("board.columns.planned") }
     : analysisBadge;
   const conflictStatusMap: Record<KanbanCard['status'], { status: KanbanCard['status']; label: string }> = {
-    new: { status: 'new', label: 'Uploaded batch' },
-    progress: { status: 'progress', label: 'Conflicts' },
-    review: { status: 'progress', label: 'Conflicts' },
-    done: { status: 'done', label: 'Stored' },
+    new: { status: 'new', label: t("board.columns.uploaded_batch") },
+    progress: { status: 'progress', label: t("board.columns.conflicts") },
+    review: { status: 'progress', label: t("board.columns.conflicts") },
+    done: { status: 'done', label: t("board.columns.stored") },
   };
   const conflictStatus = conflictStatusMap[card.status];
   const warehouseSampleLabelMap: Record<string, string> = {
-    new: 'Planned',
-    progress: 'Awaiting arrival',
-    review: 'Stored',
-    done: 'Issues',
+    new: t("board.columns.planned"),
+    progress: t("board.columns.awaiting_arrival"),
+    review: t("board.columns.stored"),
+    done: t("board.columns.issues"),
   };
   const toDigits = (value: string) => value.replace(/\D/g, '');
   const storageFormatRegex = /^Fridge\s+[A-Za-z0-9]+\s*·\s*Bin\s+[A-Za-z0-9]+\s*·\s*Place\s+[A-Za-z0-9]+$/;
@@ -127,6 +148,11 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
     `Fridge ${parts.fridge.trim()} · Bin ${parts.bin.trim()} · Place ${parts.place.trim()}`;
   const isValidStorageLocation = (value: string) => storageFormatRegex.test(value.trim());
   const isWarehouseStatusView = true;
+  const UNASSIGNED_VALUE = 'Unassigned';
+  const displayAssignedTo =
+    card.assignedTo && card.assignedTo.trim().toLowerCase() === UNASSIGNED_VALUE.toLowerCase()
+      ? t("board.card.unassigned")
+      : card.assignedTo ?? t("board.card.unassigned");
   const sampleLabel = isWarehouseStatusView
     ? warehouseSampleLabelMap[card.status] ?? card.statusLabel
     : card.statusLabel;
@@ -240,10 +266,18 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
   const latestIssue = noteEntries.length > 0 ? noteEntries[noteEntries.length - 1].issue : undefined;
   const latestReturnNote = noteEntries.length > 0 ? noteEntries[noteEntries.length - 1].note : undefined;
   const formatNoteTime = (value?: string) => {
-    if (!value) return 'Time unavailable';
+    if (!value) return t("panel.timeUnavailable");
     const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? 'Time unavailable' : parsed.toLocaleString();
+    return Number.isNaN(parsed.getTime()) ? t("panel.timeUnavailable") : parsed.toLocaleString();
   };
+  const panelTitle =
+    card.analysisType === 'Sample'
+      ? card.sampleId
+      : card.analysisType === 'Conflict'
+      ? t("board.card.conflict")
+      : card.analysisType === 'Batch'
+      ? t("board.card.batch")
+      : card.analysisType;
 
   return (
     <>
@@ -269,7 +303,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
           <div className="flex items-center justify-between px-4 py-2 border-b border-border">
             <div>
               <h2 className="text-lg font-semibold text-foreground leading-none">
-                {card.analysisType === 'Sample' ? card.sampleId : card.analysisType}
+                {panelTitle}
               </h2>
             </div>
             <button
@@ -286,7 +320,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
             <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <span className="text-sm text-muted-foreground flex items-center gap-1">
-                  <ClipboardList className="w-3 h-3" /> Sample status:
+                  <ClipboardList className="w-3 h-3" /> {t("panel.sampleStatus")}:
                 </span>
                 {role === 'warehouse_worker' ? (
                   <StatusBadge status={card.status} label={sampleLabel} />
@@ -296,7 +330,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-muted-foreground flex items-center gap-1">
-                  <FlaskConical className="w-3 h-3" /> Analysis status:
+                  <FlaskConical className="w-3 h-3" /> {t("panel.analysisStatus")}:
                 </span>
                 {role === 'lab_operator' ? (
                   <StatusBadge status={analysisBadgeDisplay.status} label={analysisBadgeDisplay.label} />
@@ -306,14 +340,14 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
               </div>
               {noteEntries.length > 0 && (
                 <div className="space-y-1 text-sm text-muted-foreground">
-                  <p className="truncate">Latest issue: {latestIssue ?? '—'}</p>
-                  <p className="truncate">Latest return note: {latestReturnNote ?? '—'}</p>
+                  <p className="truncate">{t("panel.latestIssue")}: {latestIssue ?? '—'}</p>
+                  <p className="truncate">{t("panel.latestReturnNote")}: {latestReturnNote ?? '—'}</p>
                 </div>
               )}
               {role === 'admin' && (
                 <div className="flex items-center gap-3">
                   <span className="text-sm text-muted-foreground flex items-center gap-1">
-                    <CircleDot className="w-3 h-3" /> Conflict status:
+                    <CircleDot className="w-3 h-3" /> {t("board.card.conflictStatus")}:
                   </span>
                   <span className="text-sm text-foreground">{conflictStatus.label}</span>
                 </div>
@@ -322,10 +356,10 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
             {adminActions && !card.adminStored && (card.status === 'review' || card.status === 'done') && (
               <div className="flex gap-2">
                 <Button size="sm" variant="secondary" className="bg-emerald-900 text-emerald-100 hover:bg-emerald-800" onClick={() => adminActions.onResolve()}>
-                  Stored as not-resolved
+                  {t("board.card.storedAsNotResolved")}
                 </Button>
                 <Button size="sm" variant="secondary" className="bg-amber-900 text-amber-100 hover:bg-amber-800" onClick={() => adminActions.onReturn()}>
-                  Return for analysis
+                  {t("board.card.returnForAnalysis")}
                 </Button>
               </div>
             )}
@@ -336,17 +370,17 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                  <User className="w-3 h-3" /> Assigned To
+                  <User className="w-3 h-3" /> {t("panel.assignedTo")}
                 </label>
                 <EditableField
-                  value={card.assignedTo ?? 'Unassigned'}
-                  placeholder="Add assignee"
+                  value={displayAssignedTo}
+                  placeholder={t("panel.addAssignee")}
                   onSave={(val) => {
                     if (card.analysisType === 'Sample' && onUpdateSample) {
-                      onUpdateSample({ assigned_to: val || 'Unassigned' });
+                      onUpdateSample({ assigned_to: val || UNASSIGNED_VALUE });
                     }
                     if (card.analysisType !== 'Sample' && onUpdateAnalysis) {
-                      onUpdateAnalysis({ assigned_to: val || 'Unassigned' });
+                      onUpdateAnalysis({ assigned_to: val || UNASSIGNED_VALUE });
                     }
                   }}
                   readOnly={!onUpdateSample && !onUpdateAnalysis}
@@ -354,7 +388,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                  <Calendar className="w-3 h-3" /> Sampling Date
+                  <Calendar className="w-3 h-3" /> {t("panel.samplingDate")}
                 </label>
                 <DateEditable
                   value={card.samplingDate}
@@ -364,7 +398,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                  <MapPin className="w-3 h-3" /> Storage
+                  <MapPin className="w-3 h-3" /> {t("panel.storage")}
                 </label>
                 <div className="flex items-center gap-2">
                   <Input
@@ -415,12 +449,12 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                  <CircleDot className="w-3 h-3" /> Well
+                  <CircleDot className="w-3 h-3" /> {t("board.card.well")}
                 </label>
                 <div className="flex gap-2">
                   <EditableField
                     value={toDigits(card.wellId)}
-                    placeholder="Well"
+                    placeholder={t("board.card.well")}
                     onSave={(val) => {
                       const digits = toDigits(val);
                       if (!digits) {
@@ -433,7 +467,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                   <span className="text-sm text-muted-foreground">·</span>
                   <EditableField
                     value={card.horizon}
-                    placeholder="Horizon"
+                    placeholder={t("board.card.horizon")}
                     onSave={(val) => onUpdateSample?.({ horizon: val || card.horizon })}
                     readOnly={!onUpdateSample}
                   />
@@ -441,11 +475,11 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
               </div>
             {card.conflictResolutionNote && (
               <div className="space-y-2 col-span-2">
-                <label className="text-xs text-muted-foreground uppercase tracking-wide">Resolution note</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("panel.resolutionNote")}</label>
                 <div className="rounded border border-border bg-muted/40 p-2 space-y-2">
                   <div className="text-xs text-muted-foreground flex items-center gap-2">
                     <Users className="w-3 h-3" />
-                    <span className="font-semibold text-foreground">System note</span>
+                    <span className="font-semibold text-foreground">{t("panel.systemNote")}</span>
                     <span>·</span>
                     <span>{formatNoteTime(card.conflictResolutionAt)}</span>
                   </div>
@@ -458,7 +492,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
           {noteEntries.length > 0 && (
             <div className="space-y-2 mt-4">
               <div className="flex items-center justify-between">
-                <label className="text-xs text-muted-foreground uppercase tracking-wide">Issue & Return Notes</label>
+                <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("panel.issueAndReturnNotes")}</label>
                 <span className="text-xs text-muted-foreground">{noteEntries.length}</span>
               </div>
               <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
@@ -470,16 +504,16 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                     <div key={`${issue ?? 'issue'}-${note ?? 'note'}-${idx}`} className="rounded border border-border bg-muted/40 p-2 space-y-2">
                       <div className="text-xs text-muted-foreground flex items-center gap-2">
                         <Users className="w-3 h-3" />
-                        <span className="font-semibold text-foreground">System note</span>
+                        <span className="font-semibold text-foreground">{t("panel.systemNote")}</span>
                         <span>·</span>
                         <span>{formatNoteTime(displayTimestamp)}</span>
                       </div>
                       <div className="space-y-1">
                         <p className="text-sm text-foreground whitespace-pre-wrap break-words">
-                          <span className="text-muted-foreground">Issue:</span> {issue ?? '—'}
+                          <span className="text-muted-foreground">{t("panel.issue")}:</span> {issue ?? '—'}
                         </p>
                         <p className="text-sm text-foreground whitespace-pre-wrap break-words">
-                          <span className="text-muted-foreground">Return note:</span> {note ?? '—'}
+                          <span className="text-muted-foreground">{t("panel.returnNote")}:</span> {note ?? '—'}
                         </p>
                       </div>
                     </div>
@@ -491,7 +525,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
 
           {card.methods && card.methods.length > 0 && (
             <div className="space-y-2 mt-4">
-              <label className="text-xs text-muted-foreground uppercase tracking-wide">Methods</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("board.methods")}</label>
               <div className="space-y-1">
                   {sortMethods(card.methods).map((m) => (
                     <label key={m.id} className="flex items-center gap-2 text-sm">
@@ -513,7 +547,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                           </span>
                         ) : null}
                       </span>
-                      {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">Done</span>}
+                      {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">{t("board.card.done")}</span>}
                     </label>
                   ))}
                 </div>
@@ -523,11 +557,11 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
           {/* Comments */}
           <div className="space-y-2 mt-4">
             <div className="flex items-center justify-between">
-              <label className="text-xs text-muted-foreground uppercase tracking-wide">Comments</label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("panel.comments")}</label>
               {comments.length > 0 && <span className="text-xs text-muted-foreground">{comments.length}</span>}
             </div>
             <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
-            {comments.length === 0 && <p className="text-sm text-muted-foreground">No comments yet.</p>}
+            {comments.length === 0 && <p className="text-sm text-muted-foreground">{t("panel.noCommentsYet")}</p>}
             {comments.map((c) => (
               <div key={c.id} className="rounded border border-border bg-muted/40 p-2 space-y-1">
                 <div className="text-xs text-muted-foreground flex items-center gap-2">
@@ -542,9 +576,9 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
             </div>
             {onAddComment && (
               <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">Comment as <span className="text-foreground font-semibold">{commentAuthor || 'Unknown'}</span></p>
+                <p className="text-xs text-muted-foreground">{t("panel.commentAs")} <span className="text-foreground font-semibold">{commentAuthor || t("panel.unknown")}</span></p>
                 <Textarea
-                  placeholder="Write a comment..."
+                  placeholder={t("panel.writeComment")}
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   className="min-h-[80px]"
@@ -558,7 +592,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                     setCommentText('');
                   }}
                 >
-                  Add comment
+                  {t("panel.addComment")}
                 </Button>
               </div>
             )}
@@ -569,7 +603,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
         <div className="p-4 border-t border-border flex flex-col gap-3">
             {onAssignOperator && role !== 'action_supervision' && (
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-foreground">Assign operator to method</p>
+                <p className="text-sm font-semibold text-foreground">{t("panel.assignOperatorToMethod")}</p>
                 <div className="grid grid-cols-2 gap-2">
                   <Select
                     value={assignMethod}
@@ -579,7 +613,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                     }}
                   >
                     <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Select method" />
+                      <SelectValue placeholder={t("panel.selectMethod")} />
                     </SelectTrigger>
                     <SelectContent>
                       {availableMethods.map((m) => (
@@ -597,10 +631,10 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                     }}
                   >
                     <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Assign to lab operator" />
+                      <SelectValue placeholder={t("panel.assignToLabOperator")} />
                     </SelectTrigger>
                     <SelectContent>
-                      {!canAssignOnlySelf && <SelectItem value="__unassigned">Unassigned</SelectItem>}
+                      {!canAssignOnlySelf && <SelectItem value="__unassigned">{t("board.card.unassigned")}</SelectItem>}
                       {assignableOperators.map((op) => (
                         <SelectItem key={op.id} value={op.name}>
                           {op.name}
@@ -610,27 +644,27 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                   </Select>
                 </div>
                 {assignMethod && assignableOperators.length === 0 && (
-                  <p className="text-xs text-muted-foreground">No operators have permission for this method.</p>
+                  <p className="text-xs text-muted-foreground">{t("panel.noOperatorsForMethod")}</p>
                 )}
                 {assignError && <p className="text-sm text-destructive">{assignError}</p>}
                 <Button
                   size="sm"
                   onClick={() => {
                     if (!assignMethod) {
-                      setAssignError('Method is required');
+                      setAssignError(t("panel.methodRequired"));
                       return;
                     }
                     if (!assignOperator) {
-                      setAssignError('Select an operator to assign');
+                      setAssignError(t("panel.selectOperator"));
                       return;
                     }
                     const isUnassigned = assignOperator === '__unassigned';
                     if (canAssignOnlySelf && selfOperatorName && assignOperator.trim().toLowerCase() !== selfOperatorName.toLowerCase()) {
-                      setAssignError('Lab operator can assign only themselves');
+                      setAssignError(t("panel.labAssignOnlySelf"));
                       return;
                     }
                     if (!isUnassigned && assignableOperators.length === 0) {
-                      setAssignError('No eligible operators for this method');
+                      setAssignError(t("panel.noEligibleOperators"));
                       return;
                     }
                     onAssignOperator?.(assignMethod, assignOperator);
@@ -639,22 +673,22 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                     setAssignError('');
                   }}
                 >
-                  Assign operator
+                  {t("panel.assignOperator")}
                 </Button>
               </div>
             )}
             {isAdmin && onPlanAnalysis && (
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-foreground">Add analysis (Admin)</p>
+                <p className="text-sm font-semibold text-foreground">{t("panel.addAnalysisAdmin")}</p>
                 <div className="grid grid-cols-2 gap-2">
                   <Input
-                    placeholder="e.g. NMR"
+                    placeholder={t("panel.analysisPlaceholder")}
                     value={analysisType}
                     onChange={(e) => setAnalysisType(e.target.value)}
                   />
                   <Select value={assignedTo || undefined} onValueChange={(v) => setAssignedTo(v)}>
                     <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Assign to (optional)" />
+                      <SelectValue placeholder={t("panel.assignOptional")} />
                     </SelectTrigger>
                     <SelectContent>
                       {operatorOptions.map((op) => (
@@ -662,7 +696,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                           {op.name}
                         </SelectItem>
                       ))}
-                      <SelectItem value="__unassigned">Unassigned</SelectItem>
+                      <SelectItem value="__unassigned">{t("board.card.unassigned")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -671,7 +705,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                   size="sm"
                   onClick={() => {
                     if (!analysisType.trim()) {
-                      setPlanError('Analysis type is required');
+                      setPlanError(t("panel.analysisTypeRequired"));
                       return;
                     }
                     onPlanAnalysis({
@@ -683,24 +717,24 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                     setPlanError('');
                   }}
                 >
-                  Add analysis
+                  {t("panel.addAnalysis")}
                 </Button>
               </div>
             )}
             {onResolveConflict && (
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-foreground">Resolve conflict</p>
-                <Input placeholder="Resolution note (optional)" value={resolution} onChange={(e) => setResolution(e.target.value)} />
+                <p className="text-sm font-semibold text-foreground">{t("panel.resolveConflict")}</p>
+                <Input placeholder={t("panel.resolutionNoteOptional")} value={resolution} onChange={(e) => setResolution(e.target.value)} />
                 <Button size="sm" onClick={() => onResolveConflict(resolution || undefined)}>
-                  Mark resolved
+                  {t("panel.markResolved")}
                 </Button>
                 <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                   <div>
-                    <p className="text-[11px] font-semibold text-foreground">OLD</p>
+                    <p className="text-[11px] font-semibold text-foreground">{t("panel.old")}</p>
                     <pre className="whitespace-pre-wrap break-words bg-muted/40 rounded p-2 text-[11px]">{card.conflictOld ?? '—'}</pre>
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold text-foreground">NEW</p>
+                    <p className="text-[11px] font-semibold text-foreground">{t("panel.new")}</p>
                     <pre className="whitespace-pre-wrap break-words bg-muted/40 rounded p-2 text-[11px]">{card.conflictNew ?? '—'}</pre>
                   </div>
                 </div>

@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarCmp } from '@/components/ui/calendar';
 import { Calendar } from 'lucide-react';
 import { format } from 'date-fns';
+import { useI18n } from '@/i18n';
 
 interface NewCardDialogProps {
   onCreate: (payload: NewCardPayload) => void;
@@ -17,6 +18,7 @@ interface NewCardDialogProps {
 }
 
 export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenChange }: NewCardDialogProps) {
+  const { t } = useI18n();
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = open !== undefined;
   const dialogOpen = isControlled ? open : internalOpen;
@@ -94,7 +96,7 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
   return (
     <Dialog open={dialogOpen} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm">New Sample</Button>
+        <Button size="sm">{t("board.newSample")}</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

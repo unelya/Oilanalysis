@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useI18n } from '@/i18n';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
 const DEFAULT_ANALYSIS_TYPES = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
@@ -43,12 +44,6 @@ const ASSIGNMENT_NOTIFICATIONS_KEY = 'labsync-assignment-notifications';
 const CARD_SORT_KEY = 'labsync-card-sort';
 const SHOW_LAB_COMPLETED_MOCK = false;
 
-const roleCopy: Record<Role, string> = {
-  warehouse_worker: 'Warehouse view: samples and storage',
-  lab_operator: 'Lab view: analyses',
-  action_supervision: 'Action supervision view',
-  admin: 'Admin view',
-};
 const normalizeRoleKey = (value?: string | null) => (value || '').trim().toLowerCase().replace(/\s+/g, '_');
 
 const normalizeAssignees = (value?: string[] | string | null) => {
@@ -123,6 +118,7 @@ export function KanbanBoard({
   markAllReadToken?: number;
   onNotificationConsumed?: () => void;
 }) {
+  const { t } = useI18n();
   const { user } = useAuth();
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [plannedAnalyses, setPlannedAnalyses] = useState<PlannedAnalysisCard[]>([]);
@@ -528,7 +524,7 @@ export function KanbanBoard({
         setFilterMethodWhitelist(filterMethods);
       } catch (err) {
         toast({
-          title: "Failed to load data",
+          title: t("board.failedLoadData"),
           description: err instanceof Error ? err.message : "Backend unreachable",
           variant: "destructive",
         });
@@ -1260,21 +1256,21 @@ export function KanbanBoard({
         samplingDate: b.date,
         storageLocation: '—',
         analysisType: 'Batch',
-        assignedTo: 'Action supervisor',
+        assignedTo: t("common.actionSupervision"),
         analysisStatus: analysisStatusBySampleId.get(b.title) ?? 'planned',
         sampleStatus: 'received',
       }));
       const conflictCards: KanbanCard[] = conflicts.map((c) => ({
         id: `conflict-${c.id}`,
         status: c.status === 'resolved' ? 'done' : 'progress',
-        statusLabel: c.status === 'resolved' ? 'Resolved' : 'Conflicts',
+        statusLabel: c.status === 'resolved' ? t("board.card.resolved") : t("board.columns.conflicts"),
         sampleId: `Conflict ${c.id}`,
         wellId: '',
         horizon: '',
         samplingDate: '',
         storageLocation: '—',
         analysisType: 'Conflict',
-        assignedTo: 'Action supervisor',
+        assignedTo: t("common.actionSupervision"),
         analysisStatus: analysisStatusBySampleId.get(`Conflict ${c.id}`) ?? 'review',
         sampleStatus: 'received',
         conflictOld: c.old_payload,
@@ -1768,7 +1764,7 @@ export function KanbanBoard({
   const statusLineMode = role === 'lab_operator' ? 'sample' : role === 'action_supervision' || role === 'admin' ? 'both' : 'analysis';
   const analysisLabelMode = role === 'lab_operator' || role === 'warehouse_worker' ? 'column' : 'analysis';
   const showConflictStatus = role === 'admin' || role === 'action_supervision';
-  const conflictStatusLabel = showConflictStatus ? 'Conflict' : 'Conflict status';
+  const conflictStatusLabel = showConflictStatus ? t("board.card.conflict") : t("board.card.conflictStatus");
   const handleCardClick = (card: KanbanCard) => {
     if (role === 'warehouse_worker' && warehouseReturnHighlights[card.sampleId]) {
       setWarehouseReturnHighlights((prev) => {
@@ -3409,6 +3405,23 @@ export function KanbanBoard({
     return { field, direction, isNone: false };
   };
   const sortMeta = parseSort(sortDraft);
+  const roleLabel = t(`board.roleView.${role}`);
+  const translateColumnTitle = (title: string) => {
+    const keyByTitle: Record<string, string> = {
+      Planned: "board.columns.planned",
+      "Awaiting arrival": "board.columns.awaiting_arrival",
+      Stored: "board.columns.stored",
+      Issues: "board.columns.issues",
+      "In progress": "board.columns.in_progress",
+      "Needs attention": "board.columns.needs_attention",
+      Completed: "board.columns.completed",
+      "Uploaded batch": "board.columns.uploaded_batch",
+      Conflicts: "board.columns.conflicts",
+      Deleted: "board.columns.deleted",
+    };
+    const key = keyByTitle[title];
+    return key ? t(key) : title;
+  };
   
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -3416,10 +3429,10 @@ export function KanbanBoard({
       <div className="flex items-center justify-between px-6 py-4 border-b border-border">
         <div>
           <h1 className="text-xl font-semibold text-foreground">
-            {roleCopy[role]} • Sample Tracking Board
+            {roleLabel} • {t("board.sampleTrackingBoard")}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {totalSamples} samples across {columns.length} stages
+            {t("board.samplesAcrossStages", { count: totalSamples, stages: columns.length })}
           </p>
         </div>
         
@@ -3429,7 +3442,7 @@ export function KanbanBoard({
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
                   <Filter className="w-4 h-4" />
-                  Methods {methodFilter.length > 0 ? `(${methodFilter.length})` : ''}
+                  {t("board.methods")} {methodFilter.length > 0 ? `(${methodFilter.length})` : ''}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="p-0 w-56" align="end">
@@ -3464,7 +3477,7 @@ export function KanbanBoard({
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
                   <Filter className="w-4 h-4" />
-                  Filter visibility
+                  {t("board.filterVisibility")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="p-0 w-56" align="end">
@@ -3490,12 +3503,12 @@ export function KanbanBoard({
                             try {
                               await updateFilterMethods(next);
                               toast({
-                                title: "Changes saved",
-                                description: "Filter visibility updated.",
+                                title: t("board.changesSaved"),
+                                description: t("board.filterVisibilityUpdated"),
                               });
                             } catch (err) {
                               toast({
-                                title: "Failed to update filters",
+                                title: t("board.failedUpdateFilters"),
                                 description: err instanceof Error ? err.message : "Backend unreachable",
                                 variant: "destructive",
                               });
@@ -3532,24 +3545,24 @@ export function KanbanBoard({
                 ) : (
                   <ArrowUp className="w-4 h-4" />
                 )}
-                Sort {sortMode !== 'none' ? '(1)' : ''}
+                {t("board.sort")} {sortMode !== 'none' ? '(1)' : ''}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="p-3 w-80" align="end">
               <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-foreground">Sort order</p>
+                  <p className="text-sm font-semibold text-foreground">{t("board.sortOrder")}</p>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => setSortDraft('none')}
                   >
-                    Reset
+                    {t("board.reset")}
                   </Button>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">Sort by</p>
+                  <p className="text-xs text-muted-foreground">{t("board.sortBy")}</p>
                   <div className="flex items-center gap-2">
                     <Select
                       value={sortMeta.isNone ? '' : sortMeta.field}
@@ -3560,12 +3573,12 @@ export function KanbanBoard({
                       }}
                     >
                       <SelectTrigger className="h-9 flex-1">
-                        <SelectValue placeholder="Choose field" />
+                        <SelectValue placeholder={t("board.chooseField")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="sample">Sample ID</SelectItem>
-                        <SelectItem value="date">Sampling date</SelectItem>
-                        {role === 'lab_operator' && <SelectItem value="methods">Methods Done</SelectItem>}
+                        <SelectItem value="sample">{t("board.sampleId")}</SelectItem>
+                        <SelectItem value="date">{t("board.samplingDate")}</SelectItem>
+                        {role === 'lab_operator' && <SelectItem value="methods">{t("board.methodsDone")}</SelectItem>}
                       </SelectContent>
                     </Select>
                     <div className="flex items-center gap-1 rounded-md border border-border p-1">
@@ -3578,7 +3591,7 @@ export function KanbanBoard({
                           const field = sortMeta.field;
                           setSortDraft(`${field}:asc` as typeof sortDraft);
                         }}
-                        aria-label="Ascending"
+                        aria-label={t("board.ascending")}
                       >
                         <ArrowUp className="h-4 w-4" />
                       </Button>
@@ -3591,7 +3604,7 @@ export function KanbanBoard({
                           const field = sortMeta.field;
                           setSortDraft(`${field}:desc` as typeof sortDraft);
                         }}
-                        aria-label="Descending"
+                        aria-label={t("board.descending")}
                       >
                         <ArrowDown className="h-4 w-4" />
                       </Button>
@@ -3605,7 +3618,7 @@ export function KanbanBoard({
                     size="sm"
                     onClick={() => setSortOpen(false)}
                   >
-                    Cancel
+                    {t("board.cancel")}
                   </Button>
                   <Button
                     type="button"
@@ -3615,7 +3628,7 @@ export function KanbanBoard({
                       setSortOpen(false);
                     }}
                   >
-                    Apply
+                    {t("board.apply")}
                   </Button>
                 </div>
               </div>
@@ -3627,7 +3640,7 @@ export function KanbanBoard({
                 checked={assignedOnly}
                 onCheckedChange={(val) => setAssignedOnly(Boolean(val))}
               />
-              <span>Show only assigned to me</span>
+              <span>{t("board.showAssignedOnly")}</span>
             </label>
           )}
           {(role === 'lab_operator' || role === 'admin') && (
@@ -3636,16 +3649,16 @@ export function KanbanBoard({
                 checked={incompleteOnly}
                 onCheckedChange={(val) => setIncompleteOnly(Boolean(val))}
               />
-              <span>Show only incomplete</span>
+              <span>{t("board.showIncompleteOnly")}</span>
             </label>
           )}
           <Button variant="outline" size="sm" className="gap-2" onClick={undoLast} disabled={!canUndo}>
             <Undo2 className="w-4 h-4" />
-            Undo
+            {t("board.undo")}
           </Button>
           {role === 'action_supervision' && (
             <Button variant="default" size="sm" className="gap-2" onClick={handleQuickConflict}>
-              Add conflict
+              {t("board.addConflict")}
             </Button>
           )}
           {role === 'warehouse_worker' && (
@@ -3662,7 +3675,7 @@ export function KanbanBoard({
             </Button>
           )}
           <Button size="sm" className="gap-2" onClick={handleSave} disabled={loading}>
-            {loading ? "Syncing..." : "Refresh"}
+            {loading ? t("board.syncing") : t("board.refresh")}
           </Button>
         </div>
       </div>
@@ -3670,13 +3683,14 @@ export function KanbanBoard({
       {/* Kanban Columns */}
       <div className="flex-1 overflow-x-auto p-6">
         {loading && initialLoad ? (
-          <div className="flex h-full items-center justify-center text-muted-foreground">Loading board...</div>
+          <div className="flex h-full items-center justify-center text-muted-foreground">{t("board.loadingBoard")}</div>
         ) : (
           <div className="flex gap-4 h-full min-w-max">
             {displayColumns.map((column) => (
               <div key={`${column.id}-${column.title}`} className="w-72 flex-shrink-0 h-full">
           <KanbanColumn
             column={column}
+            displayTitle={translateColumnTitle(column.title)}
             onCardClick={handleCardClick}
             onDropCard={handleDropToColumn(column.id, column.title)}
             showAdd={role === 'warehouse_worker' && column.id === 'new'}
@@ -3739,7 +3753,7 @@ export function KanbanBoard({
           </div>
         )}
         {!loading && totalSamples === 0 && (
-          <div className="mt-6 text-sm text-muted-foreground">No items yet. Create a sample or analysis to get started.</div>
+          <div className="mt-6 text-sm text-muted-foreground">{t("board.noItemsYet")}</div>
         )}
       </div>
       
