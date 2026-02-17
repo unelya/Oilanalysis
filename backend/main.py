@@ -916,7 +916,9 @@ async def list_admin_events(
 
 
 @app.get("/admin/users", response_model=list[UserOut])
-async def list_users(db: Session = Depends(get_db)):
+async def list_users(request: Request, db: Session = Depends(get_db)):
+  if not is_admin_from_headers(request):
+    raise HTTPException(status_code=403, detail="Admin only")
   rows = db.execute(select(UserModel)).scalars().all()
   return [
     UserOut(
@@ -1069,6 +1071,8 @@ async def update_user(user_id: int, payload: UserUpdate, request: Request, db: S
 
 @app.delete("/admin/users/{user_id}")
 async def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)):
+  if not is_admin_from_headers(request):
+    raise HTTPException(status_code=403, detail="Admin only")
   row = db.get(UserModel, user_id)
   if not row:
     raise HTTPException(status_code=404, detail="User not found")

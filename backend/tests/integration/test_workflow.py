@@ -208,6 +208,30 @@ def test_admin_can_create_users_with_duplicate_emails(client):
     assert res_two.json()["email"] == "dup@example.com"
 
 
+def test_admin_users_endpoints_require_admin(client):
+    create_res = client.post(
+        "/admin/users",
+        json={"username": "guard.target", "full_name": "Guard Target", "email": "guard.target@example.com", "role": "warehouse_worker"},
+        headers={"x-role": "admin"},
+    )
+    assert create_res.status_code == 201
+    user_id = create_res.json()["id"]
+
+    list_forbidden = client.get("/admin/users")
+    assert list_forbidden.status_code == 403
+
+    list_allowed = client.get("/admin/users", headers={"x-role": "admin"})
+    assert list_allowed.status_code == 200
+    assert any(item["id"] == user_id for item in list_allowed.json())
+
+    delete_forbidden = client.delete(f"/admin/users/{user_id}")
+    assert delete_forbidden.status_code == 403
+
+    delete_allowed = client.delete(f"/admin/users/{user_id}", headers={"x-role": "admin"})
+    assert delete_allowed.status_code == 200
+    assert delete_allowed.json()["deleted"] is True
+
+
 def test_admin_can_update_username_and_full_name(client):
     payload = {"username": "rename.me", "full_name": "Rename Me", "email": "rename.me@example.com", "role": "lab_operator"}
     create_res = client.post("/admin/users", json=payload, headers={"x-role": "admin"})

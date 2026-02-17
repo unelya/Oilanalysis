@@ -14,6 +14,7 @@ In scope:
 - Role-based operational workflows (warehouse, lab operator, action supervision, admin)
 - Sample, planned analysis, action batch, conflict, and admin event-log flows
 - Audit traceability requirements
+- Current UI workflow labels relevant to scenario assertions
 
 Out of scope:
 - Instrument file ingestion and parsing
@@ -65,14 +66,17 @@ Users may have multiple roles (`roles` list), with one primary role field for di
 ## Authorization Rules (Current Implementation)
 Important: authorization is currently enforced via request role headers (`X-Role` / `X-Roles`) on many admin/role-sensitive endpoints.
 
-Admin-only endpoints:
+Admin-only endpoints (enforced):
 - `DELETE /admin/samples`
 - `PUT /filter-methods`
 - `DELETE /admin/purge-nondefault-analyses`
 - `GET /admin/events`
 - `POST /admin/users`
 - `PATCH /admin/users/{user_id}`
-- `DELETE /admin/users/{user_id}` (expected admin-only by policy)
+
+Admin endpoints not currently role-guarded in code (security debt, should be fixed):
+- `GET /admin/users`
+- `DELETE /admin/users/{user_id}`
 
 Lab assignment rules for planned analyses:
 - Non-admin lab operator can only add/remove self.
@@ -141,6 +145,7 @@ For key tests, assert that audit log contains:
 - Early UI-only stages are complete and superseded by backend-backed flows.
 - Full `wells` and `horizon` normalized entities are deferred; current sample model stores minimal fields directly.
 - Fine-grained token-backed server-side authorization is not fully implemented yet; header-based role checks remain in current backend logic.
+- Current lab board title copy is `Lab view: analyses • Sample Tracking Board` (used in UI assertions if needed).
 
 ## Test Organization Recommendation
 - `backend/tests/integration/scenarios/test_happy_path.py`
@@ -152,4 +157,3 @@ Each scenario should:
 - Create its own deterministic fixtures/data IDs.
 - Avoid dependence on startup-seeded non-admin users.
 - Assert both behavior and audit traceability.
-
