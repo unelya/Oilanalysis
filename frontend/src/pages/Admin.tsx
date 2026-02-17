@@ -20,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Check, ChevronsUpDown, Pencil } from "lucide-react";
+import { Check, ChevronDown, ChevronsUpDown, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const roles = [
@@ -66,9 +66,8 @@ const Admin = () => {
   const [eventQuery, setEventQuery] = useState("");
   const [eventEntityType, setEventEntityType] = useState("");
   const [eventAction, setEventAction] = useState("");
-  const [eventActor, setEventActor] = useState("");
-  const [eventEntityId, setEventEntityId] = useState("");
   const [eventSort, setEventSort] = useState<"desc" | "asc">("desc");
+  const [eventLogOpen, setEventLogOpen] = useState(false);
   const { toast } = useToast();
 
   const load = async () => {
@@ -90,15 +89,11 @@ const Admin = () => {
     eventQuery?: string;
     eventEntityType?: string;
     eventAction?: string;
-    eventActor?: string;
-    eventEntityId?: string;
     eventSort?: "desc" | "asc";
   }) => {
     const nextQuery = opts?.eventQuery ?? eventQuery;
     const nextEntityType = opts?.eventEntityType ?? eventEntityType;
     const nextAction = opts?.eventAction ?? eventAction;
-    const nextActor = opts?.eventActor ?? eventActor;
-    const nextEntityId = opts?.eventEntityId ?? eventEntityId;
     const nextSort = opts?.eventSort ?? eventSort;
     setEventsLoading(true);
     try {
@@ -106,8 +101,6 @@ const Admin = () => {
         q: nextQuery || undefined,
         entityType: nextEntityType || undefined,
         action: nextAction || undefined,
-        actor: nextActor || undefined,
-        entityId: nextEntityId || undefined,
         sort: nextSort,
         limit: 300,
       });
@@ -303,6 +296,8 @@ const Admin = () => {
     }
   };
 
+  const visibleEvents = eventLogOpen ? events : events.slice(0, 10);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <TopBar />
@@ -493,20 +488,19 @@ const Admin = () => {
               )}
             </div>
           </div>
-          <div className="mt-6 rounded-2xl border border-border/60 bg-card/70">
-            <div className="px-4 py-3 border-b border-border/60">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-foreground">Event log</h3>
-                <span className="text-xs text-muted-foreground">{eventsLoading ? "Loading..." : `${events.length} events`}</span>
-              </div>
-              <div className="mt-3 grid grid-cols-[2fr_repeat(4,minmax(0,1fr))_150px] gap-2">
+          <div className="space-y-2 mb-4 mt-8">
+            <h2 className="text-2xl font-semibold text-foreground">Event log</h2>
+            <p className="text-sm text-muted-foreground">Review workflow activity with filters, sorting, and search.</p>
+            <div className="pt-1">
+              <div className="flex items-center gap-2">
                 <Input
                   value={eventQuery}
                   onChange={(e) => setEventQuery(e.target.value)}
                   placeholder="Search details, actor, action..."
+                  className="flex-1"
                 />
                 <select
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm min-w-[170px]"
                   value={eventEntityType}
                   onChange={(e) => setEventEntityType(e.target.value)}
                 >
@@ -518,7 +512,7 @@ const Admin = () => {
                   ))}
                 </select>
                 <select
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm min-w-[170px]"
                   value={eventAction}
                   onChange={(e) => setEventAction(e.target.value)}
                 >
@@ -529,18 +523,14 @@ const Admin = () => {
                     </option>
                   ))}
                 </select>
-                <Input value={eventActor} onChange={(e) => setEventActor(e.target.value)} placeholder="Actor" />
-                <Input value={eventEntityId} onChange={(e) => setEventEntityId(e.target.value)} placeholder="Entity ID" />
                 <select
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm min-w-[160px]"
                   value={eventSort}
                   onChange={(e) => setEventSort(e.target.value as "desc" | "asc")}
                 >
                   <option value="desc">Newest first</option>
                   <option value="asc">Oldest first</option>
                 </select>
-              </div>
-              <div className="mt-2 flex items-center gap-2">
                 <Button size="sm" onClick={() => loadEvents()} disabled={eventsLoading}>
                   Apply filters
                 </Button>
@@ -551,15 +541,11 @@ const Admin = () => {
                     setEventQuery("");
                     setEventEntityType("");
                     setEventAction("");
-                    setEventActor("");
-                    setEventEntityId("");
                     setEventSort("desc");
                     void loadEvents({
                       eventQuery: "",
                       eventEntityType: "",
                       eventAction: "",
-                      eventActor: "",
-                      eventEntityId: "",
                       eventSort: "desc",
                     });
                   }}
@@ -568,7 +554,25 @@ const Admin = () => {
                   Reset
                 </Button>
               </div>
+              <div className="mt-2 flex items-center justify-end gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {eventsLoading ? "Loading..." : `Showing ${visibleEvents.length} of ${events.length}`}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setEventLogOpen((prev) => !prev)}
+                  aria-label={eventLogOpen ? "Collapse event log to top 10 entries" : "Expand event log to full list"}
+                  title={eventLogOpen ? "Show top 10" : "Show full list"}
+                >
+                  <ChevronDown className={`h-4 w-4 transition-transform ${eventLogOpen ? "rotate-180" : ""}`} />
+                </Button>
+              </div>
             </div>
+          </div>
+          <Separator />
+          <div className="mt-4 rounded-2xl border border-border/60 bg-card/70">
             <div className="grid grid-cols-[180px_140px_140px_120px_minmax(0,1fr)] gap-3 text-xs uppercase tracking-wide text-muted-foreground px-4 py-2 border-b border-border/60">
               <div>Timestamp</div>
               <div>Actor</div>
@@ -576,8 +580,8 @@ const Admin = () => {
               <div>Action</div>
               <div>Details</div>
             </div>
-            <div className="max-h-96 overflow-auto divide-y divide-border/60">
-              {events.map((event) => (
+            <div className={`${eventLogOpen ? "divide-y divide-border/60" : "max-h-96 overflow-auto divide-y divide-border/60"}`}>
+              {visibleEvents.map((event) => (
                 <div key={event.id} className="grid grid-cols-[180px_140px_140px_120px_minmax(0,1fr)] gap-3 items-start px-4 py-2 text-sm text-foreground">
                   <div className="text-xs text-muted-foreground">{new Date(event.performed_at).toLocaleString()}</div>
                   <div className="truncate">{event.performed_by || "System"}</div>
@@ -592,7 +596,7 @@ const Admin = () => {
                   <div className="whitespace-pre-wrap break-words text-muted-foreground">{event.details || "-"}</div>
                 </div>
               ))}
-              {events.length === 0 && (
+              {visibleEvents.length === 0 && (
                 <div className="px-4 py-6 text-sm text-muted-foreground">
                   {eventsLoading ? "Loading events..." : "No events found for current filters."}
                 </div>
