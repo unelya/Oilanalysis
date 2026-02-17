@@ -30,6 +30,7 @@ const roles = [
   { id: "admin", label: "Admin" },
 ];
 const methodOptions = ["SARA", "IR", "Mass Spectrometry", "Viscosity"];
+const userGridCols = "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.35fr)_120px]";
 const eventEntityTypes = ["sample", "planned_analysis", "conflict", "user"];
 const eventActions = [
   "created",
@@ -311,7 +312,7 @@ const Admin = () => {
           </div>
           <Separator />
           <div className="mt-4 rounded-2xl border border-border/60 bg-card/70 p-4">
-            <div className="grid grid-cols-[repeat(4,minmax(0,1fr))_120px] gap-3">
+            <div className={`grid ${userGridCols} gap-3`}>
               <div>
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">Username</label>
                 <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value)} placeholder="e.g. lab.tech" />
@@ -349,7 +350,7 @@ const Admin = () => {
             </p>
           </div>
           <div className="mt-4 rounded-2xl border border-border/60 bg-card/70">
-            <div className="grid grid-cols-[repeat(4,minmax(0,1fr))_120px] gap-3 text-xs uppercase tracking-wide text-muted-foreground px-4 py-2 border-b border-border/60">
+            <div className={`grid ${userGridCols} gap-3 text-xs uppercase tracking-wide text-muted-foreground px-4 py-2 border-b border-border/60`}>
               <div>Username</div>
               <div>Full name</div>
               <div>Email</div>
@@ -358,7 +359,7 @@ const Admin = () => {
             </div>
             <div className="divide-y divide-border/60">
               {users.map((user) => (
-                <div key={user.id} className="grid grid-cols-[repeat(4,minmax(0,1fr))_120px] gap-3 items-start px-4 py-3 text-sm text-foreground">
+                <div key={user.id} className={`grid ${userGridCols} gap-3 items-start px-4 py-3 text-sm text-foreground`}>
                   <div className="font-mono text-primary">{user.username}</div>
                   <div>{user.full_name}</div>
                   <div className="flex items-center justify-between gap-2">
@@ -492,15 +493,14 @@ const Admin = () => {
             <h2 className="text-2xl font-semibold text-foreground">Event log</h2>
             <p className="text-sm text-muted-foreground">Review workflow activity with filters, sorting, and search.</p>
             <div className="pt-1">
-              <div className="flex items-center gap-2">
+              <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto] gap-2">
                 <Input
                   value={eventQuery}
                   onChange={(e) => setEventQuery(e.target.value)}
                   placeholder="Search details, actor, action..."
-                  className="flex-1"
                 />
                 <select
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm min-w-[170px]"
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                   value={eventEntityType}
                   onChange={(e) => setEventEntityType(e.target.value)}
                 >
@@ -512,7 +512,7 @@ const Admin = () => {
                   ))}
                 </select>
                 <select
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm min-w-[170px]"
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                   value={eventAction}
                   onChange={(e) => setEventAction(e.target.value)}
                 >
@@ -524,18 +524,19 @@ const Admin = () => {
                   ))}
                 </select>
                 <select
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm min-w-[160px]"
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                   value={eventSort}
                   onChange={(e) => setEventSort(e.target.value as "desc" | "asc")}
                 >
                   <option value="desc">Newest first</option>
                   <option value="asc">Oldest first</option>
                 </select>
-                <Button size="sm" onClick={() => loadEvents()} disabled={eventsLoading}>
+                <Button size="sm" className="h-10" onClick={() => loadEvents()} disabled={eventsLoading}>
                   Apply filters
                 </Button>
                 <Button
                   size="sm"
+                  className="h-10"
                   variant="outline"
                   onClick={() => {
                     setEventQuery("");
