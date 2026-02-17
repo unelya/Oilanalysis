@@ -9,13 +9,9 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/hooks/use-theme';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useI18n } from '@/i18n';
 
-const allRoleOptions: { id: Role; label: string }[] = [
-  { id: 'warehouse_worker', label: 'Warehouse' },
-  { id: 'lab_operator', label: 'Lab Operator' },
-  { id: 'action_supervision', label: 'Action Supervision' },
-  { id: 'admin', label: 'Admin' },
-];
+const allRoleOptionIds: Role[] = ['warehouse_worker', 'lab_operator', 'action_supervision', 'admin'];
 
 interface TopBarProps {
   role?: Role;
@@ -32,9 +28,16 @@ interface TopBarProps {
 export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles, showNotificationDot = false, notifications = [], onNotificationClick, onMarkAllRead }: TopBarProps) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { t } = useI18n();
+  const allRoleOptions: { id: Role; label: string }[] = [
+    { id: 'warehouse_worker', label: t("common.warehouse") },
+    { id: 'lab_operator', label: t("common.labOperator") },
+    { id: 'action_supervision', label: t("common.actionSupervision") },
+    { id: 'admin', label: t("common.admin") },
+  ];
   const selectableRoles: Role[] =
     user?.role === 'admin'
-      ? allRoleOptions.map((r) => r.id)
+      ? allRoleOptionIds
       : (allowedRoles && allowedRoles.length > 0 ? allowedRoles : user?.roles ?? (user?.role ? [user.role] : []));
   const selectedRole = role && selectableRoles.includes(role)
     ? role
@@ -63,11 +66,11 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
         <div className="relative w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="Search samples, analyses, or IDs..." 
+            placeholder={t("topBar.searchPlaceholder")} 
             className="pl-9 bg-muted border-border/50 h-9 text-sm placeholder:text-muted-foreground/60"
             value={searchTerm ?? ''}
             onChange={handleSearch}
-            aria-label="Search samples and analyses"
+            aria-label={t("topBar.searchAria")}
           />
         </div>
       </div>
@@ -75,7 +78,7 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
       <div className="flex items-center gap-4">
         <Select value={selectedRole} onValueChange={(val) => onRoleChange?.(val as Role)}>
           <SelectTrigger className="w-48 h-9 text-sm bg-muted border-border/50">
-            <SelectValue placeholder="Role" />
+            <SelectValue placeholder={t("topBar.rolePlaceholder")} />
           </SelectTrigger>
           <SelectContent>
             {(user?.role === 'admin' ? allRoleOptions : allRoleOptions.filter((opt) => selectableRoles.includes(opt.id))).map(
@@ -91,8 +94,8 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
           type="button"
           className="p-2 rounded-md hover:bg-muted transition-colors"
           onClick={toggleTheme}
-          aria-label="Toggle theme"
-          title="Toggle theme"
+          aria-label={t("topBar.toggleTheme")}
+          title={t("topBar.toggleTheme")}
         >
           {theme === 'dark' ? (
             <Sun className="h-5 w-5 text-muted-foreground" />
@@ -102,14 +105,14 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
         </button>
         <Popover>
           <PopoverTrigger asChild>
-            <button className="relative p-2 rounded-md hover:bg-muted transition-colors" aria-label="Notifications">
+            <button className="relative p-2 rounded-md hover:bg-muted transition-colors" aria-label={t("topBar.notifications")}>
               <Bell className="h-5 w-5 text-muted-foreground" />
               {showNotificationDot && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full" />}
             </button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-80 p-3">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold text-foreground">Notifications</span>
+              <span className="text-sm font-semibold text-foreground">{t("topBar.notifications")}</span>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">{sortedNotifications.length}</span>
                 {sortedNotifications.length > 0 && (
@@ -117,13 +120,13 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
                     className="text-xs text-primary hover:underline"
                     onClick={onMarkAllRead}
                   >
-                    Mark all as read
+                    {t("topBar.markAllRead")}
                   </button>
                 )}
               </div>
             </div>
             {sortedNotifications.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No new notifications.</p>
+              <p className="text-sm text-muted-foreground">{t("topBar.noNotifications")}</p>
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                 {sortedNotifications.map((note) => (
@@ -146,7 +149,7 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
         
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="text-sm font-medium text-foreground">{user?.fullName ?? "Guest"}</p>
+            <p className="text-sm font-medium text-foreground">{user?.fullName ?? t("common.guest")}</p>
           </div>
           <Avatar className="h-9 w-9 border border-border">
             <AvatarFallback className="bg-secondary text-secondary-foreground text-sm font-medium">
@@ -154,12 +157,12 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
             </AvatarFallback>
           </Avatar>
           {user ? (
-            <button className="p-2 rounded-md hover:bg-muted transition-colors" onClick={logout}>
+            <button className="p-2 rounded-md hover:bg-muted transition-colors" onClick={logout} aria-label={t("topBar.logout")} title={t("topBar.logout")}>
               <LogOut className="h-4 w-4 text-muted-foreground" />
             </button>
           ) : (
             <Button asChild size="sm" variant="outline">
-              <Link to="/login">Sign in</Link>
+              <Link to="/login">{t("topBar.signIn")}</Link>
             </Button>
           )}
         </div>

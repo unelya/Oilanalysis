@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Check, ChevronDown, ChevronsUpDown, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useI18n } from "@/i18n";
 
 const roles = [
   { id: "warehouse_worker", label: "Warehouse" },
@@ -80,6 +81,7 @@ const Admin = () => {
   const [eventSort, setEventSort] = useState<"desc" | "asc">("desc");
   const [eventLogOpen, setEventLogOpen] = useState(false);
   const { toast } = useToast();
+  const { t } = useI18n();
 
   const load = async () => {
     setLoading(true);
@@ -88,8 +90,8 @@ const Admin = () => {
       setUsers(data);
     } catch (err) {
       toast({
-        title: "Failed to load users",
-        description: err instanceof Error ? err.message : "Backend unreachable",
+        title: t("admin.toast.failedLoadUsers"),
+        description: err instanceof Error ? err.message : t("admin.toast.backendUnreachable"),
         variant: "destructive",
       });
     } finally {
@@ -124,8 +126,8 @@ const Admin = () => {
       setEvents(data);
     } catch (err) {
       toast({
-        title: "Failed to load event log",
-        description: err instanceof Error ? err.message : "Backend unreachable",
+        title: t("admin.toast.failedLoadEventLog"),
+        description: err instanceof Error ? err.message : t("admin.toast.backendUnreachable"),
         variant: "destructive",
       });
     } finally {
@@ -157,23 +159,23 @@ const Admin = () => {
     const email = newEmail.trim().toLowerCase();
     const role = newRole.trim();
     if (!username) {
-      toast({ title: "Username required", variant: "destructive" });
+      toast({ title: t("admin.toast.usernameRequired"), variant: "destructive" });
       return;
     }
     if (!fullName) {
-      toast({ title: "Full name required", variant: "destructive" });
+      toast({ title: t("admin.toast.fullNameRequired"), variant: "destructive" });
       return;
     }
     if (!role) {
-      toast({ title: "Default role required", variant: "destructive" });
+      toast({ title: t("admin.toast.defaultRoleRequired"), variant: "destructive" });
       return;
     }
     if (!email) {
-      toast({ title: "Email required", variant: "destructive" });
+      toast({ title: t("admin.toast.emailRequired"), variant: "destructive" });
       return;
     }
     if (!isValidEmail(email)) {
-      toast({ title: "Enter a valid email address", variant: "destructive" });
+      toast({ title: t("admin.toast.invalidEmail"), variant: "destructive" });
       return;
     }
     setCreating(true);
@@ -202,13 +204,13 @@ const Admin = () => {
       setNewRole("lab_operator");
       void loadEvents();
       toast({
-        title: "User created",
-        description: `Default password: ${created.default_password}`,
+        title: t("admin.toast.userCreated"),
+        description: t("admin.toast.defaultPassword", { password: created.default_password }),
       });
     } catch (err) {
       toast({
-        title: "Failed to create user",
-        description: err instanceof Error ? err.message : "Backend unreachable",
+        title: t("admin.toast.failedCreateUser"),
+        description: err instanceof Error ? err.message : t("admin.toast.backendUnreachable"),
         variant: "destructive",
       });
     } finally {
@@ -224,8 +226,8 @@ const Admin = () => {
       void loadEvents();
     } catch (err) {
       toast({
-        title: "Failed to delete user",
-        description: err instanceof Error ? err.message : "Backend unreachable",
+        title: t("admin.toast.failedDeleteUser"),
+        description: err instanceof Error ? err.message : t("admin.toast.backendUnreachable"),
         variant: "destructive",
       });
     } finally {
@@ -249,7 +251,7 @@ const Admin = () => {
   const requestUsernameUpdate = () => {
     const nextUsername = editingUsername.trim();
     if (!nextUsername) {
-      toast({ title: "Username required", variant: "destructive" });
+      toast({ title: t("admin.toast.usernameRequired"), variant: "destructive" });
       return;
     }
     if (nextUsername === editingUser.currentUsername) {
@@ -283,11 +285,11 @@ const Admin = () => {
       );
       setUsernameEditorOpen(false);
       void loadEvents();
-      toast({ title: "Username updated" });
+      toast({ title: t("admin.toast.usernameUpdated") });
     } catch (err) {
       toast({
-        title: "Failed to update username",
-        description: err instanceof Error ? err.message : "Backend unreachable",
+        title: t("admin.toast.failedUpdateUsername"),
+        description: err instanceof Error ? err.message : t("admin.toast.backendUnreachable"),
         variant: "destructive",
       });
     } finally {
@@ -311,7 +313,7 @@ const Admin = () => {
   const requestFullNameUpdate = () => {
     const nextFullName = editingFullName.trim();
     if (!nextFullName) {
-      toast({ title: "Full name required", variant: "destructive" });
+      toast({ title: t("admin.toast.fullNameRequired"), variant: "destructive" });
       return;
     }
     if (nextFullName === editingUser.currentFullName) {
@@ -345,11 +347,11 @@ const Admin = () => {
       );
       setFullNameEditorOpen(false);
       void loadEvents();
-      toast({ title: "Full name updated" });
+      toast({ title: t("admin.toast.fullNameUpdated") });
     } catch (err) {
       toast({
-        title: "Failed to update full name",
-        description: err instanceof Error ? err.message : "Backend unreachable",
+        title: t("admin.toast.failedUpdateFullName"),
+        description: err instanceof Error ? err.message : t("admin.toast.backendUnreachable"),
         variant: "destructive",
       });
     } finally {
@@ -373,11 +375,11 @@ const Admin = () => {
   const requestEmailUpdate = () => {
     const nextEmail = editingEmail.trim().toLowerCase();
     if (!nextEmail) {
-      toast({ title: "Email required", variant: "destructive" });
+      toast({ title: t("admin.toast.emailRequired"), variant: "destructive" });
       return;
     }
     if (!isValidEmail(nextEmail)) {
-      toast({ title: "Enter a valid email address", variant: "destructive" });
+      toast({ title: t("admin.toast.invalidEmail"), variant: "destructive" });
       return;
     }
     if (nextEmail === editingUser.currentEmail) {
@@ -409,11 +411,11 @@ const Admin = () => {
       );
       setEmailEditorOpen(false);
       void loadEvents();
-      toast({ title: "Email updated" });
+      toast({ title: t("admin.toast.emailUpdated") });
     } catch (err) {
       toast({
-        title: "Failed to update email",
-        description: err instanceof Error ? err.message : "Backend unreachable",
+        title: t("admin.toast.failedUpdateEmail"),
+        description: err instanceof Error ? err.message : t("admin.toast.backendUnreachable"),
         variant: "destructive",
       });
     } finally {

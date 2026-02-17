@@ -5,30 +5,31 @@ import { BackToTopButton } from "@/components/layout/BackToTopButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useI18n } from "@/i18n";
 
 type HealthStatus = "idle" | "checking" | "ok" | "error";
 
 const Settings = () => {
+  const { language, setLanguage, t } = useI18n();
   const [health, setHealth] = useState<HealthStatus>("idle");
-  const [message, setMessage] = useState<string>("");
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   const checkHealth = async () => {
     setHealth("checking");
-    setMessage("");
+    setErrorMessage("");
     try {
       const res = await fetch("/api/health");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { status?: string };
       if (data.status === "ok") {
         setHealth("ok");
-        setMessage("Backend reachable");
       } else {
         setHealth("error");
-        setMessage("Unexpected response");
+        setErrorMessage(t("settings.unexpectedResponse"));
       }
     } catch (err) {
       setHealth("error");
-      setMessage(err instanceof Error ? err.message : "Failed to reach backend");
+      setErrorMessage(err instanceof Error ? err.message : t("settings.failedBackend"));
     }
   };
 
@@ -44,6 +45,12 @@ const Settings = () => {
         : health === "error"
           ? "bg-destructive/20 text-destructive"
           : "bg-muted text-muted-foreground";
+  const statusMessage =
+    health === "ok"
+      ? t("settings.backendReachable")
+      : health === "error"
+      ? errorMessage
+      : "";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -53,21 +60,32 @@ const Settings = () => {
         <div className="flex-1 flex items-start justify-center p-8 text-foreground">
           <div className="w-full max-w-xl space-y-4">
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Settings</p>
-              <h2 className="text-2xl font-semibold">System status</h2>
-              <p className="text-sm text-muted-foreground">Frontend still uses mock data; backend is used for health only.</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("settings.title")}</p>
+              <h2 className="text-2xl font-semibold">{t("settings.systemStatus")}</h2>
+              <p className="text-sm text-muted-foreground">{t("settings.subtitle")}</p>
             </div>
             <Separator />
             <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">{t("common.language")}</span>
+              <select
+                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as "en" | "ru")}
+              >
+                <option value="en">{t("common.english")}</option>
+                <option value="ru">{t("common.russian")}</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-3">
               <Badge className={badgeTone}>
-                {health === "checking" && "Checking..."}
-                {health === "ok" && "Healthy"}
-                {health === "error" && "Unavailable"}
-                {health === "idle" && "Idle"}
+                {health === "checking" && t("settings.checking")}
+                {health === "ok" && t("settings.healthy")}
+                {health === "error" && t("settings.unavailable")}
+                {health === "idle" && t("settings.idle")}
               </Badge>
-              {message && <span className="text-sm text-muted-foreground">{message}</span>}
+              {statusMessage && <span className="text-sm text-muted-foreground">{statusMessage}</span>}
               <Button variant="outline" size="sm" onClick={checkHealth} className="ml-auto">
-                Retry
+                {t("settings.retry")}
               </Button>
             </div>
           </div>

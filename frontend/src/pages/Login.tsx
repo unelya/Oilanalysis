@@ -6,9 +6,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
+import { useI18n } from "@/i18n";
 
 const Login = () => {
   const { user, login, changePassword } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -57,7 +59,7 @@ const Login = () => {
       }
       navigate("/board");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : t("login.errors.loginFailed"));
     } finally {
       setLoading(false);
     }
@@ -68,15 +70,15 @@ const Login = () => {
     setError("");
     const nextPassword = newPassword.trim();
     if (!currentPassword) {
-      setError("Current password is required.");
+      setError(t("login.errors.currentPasswordRequired"));
       return;
     }
     if (nextPassword.length < 8) {
-      setError("New password must be at least 8 characters.");
+      setError(t("login.errors.newPasswordMin"));
       return;
     }
     if (nextPassword !== confirmPassword) {
-      setError("New password and confirmation do not match.");
+      setError(t("login.errors.passwordMismatch"));
       return;
     }
     setChangingPassword(true);
@@ -87,7 +89,7 @@ const Login = () => {
       setConfirmPassword("");
       navigate("/board");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Password change failed");
+      setError(err instanceof Error ? err.message : t("login.errors.passwordChangeFailed"));
     } finally {
       setChangingPassword(false);
     }
@@ -98,11 +100,11 @@ const Login = () => {
     setError("");
     setForgotMessage("");
     if (!forgotUsername.trim()) {
-      setError("Username is required.");
+      setError(t("login.errors.usernameRequired"));
       return;
     }
     if (!forgotEmail.trim()) {
-      setError("Email is required.");
+      setError(t("login.errors.emailRequired"));
       return;
     }
     setForgotLoading(true);
@@ -116,13 +118,13 @@ const Login = () => {
       if (!res.ok) {
         throw new Error(payload.detail || `Request failed: ${res.status}`);
       }
-      setForgotMessage(payload.message || "If that email exists, a reset email has been sent.");
+      setForgotMessage(payload.message || t("login.messages.requestSuccess"));
       if (payload.reset_token) {
         setForgotToken(payload.reset_token);
       }
       setForgotMode("confirm");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to request password reset.");
+      setError(err instanceof Error ? err.message : t("login.errors.requestFailed"));
     } finally {
       setForgotLoading(false);
     }
@@ -135,15 +137,15 @@ const Login = () => {
     const token = forgotToken.trim();
     const nextPassword = forgotNewPassword.trim();
     if (!token) {
-      setError("Reset token is required.");
+      setError(t("login.errors.resetTokenRequired"));
       return;
     }
     if (nextPassword.length < 8) {
-      setError("New password must be at least 8 characters.");
+      setError(t("login.errors.newPasswordMin"));
       return;
     }
     if (nextPassword !== forgotConfirmPassword) {
-      setError("New password and confirmation do not match.");
+      setError(t("login.errors.passwordMismatch"));
       return;
     }
     setForgotLoading(true);
@@ -157,7 +159,7 @@ const Login = () => {
       if (!res.ok) {
         throw new Error(payload.detail || `Reset failed: ${res.status}`);
       }
-      setForgotMessage("Password reset completed. You can now sign in with your new password.");
+      setForgotMessage(t("login.messages.resetSuccess"));
       setForgotMode(null);
       setPassword("");
       setShowPassword(false);
@@ -165,7 +167,7 @@ const Login = () => {
       setForgotNewPassword("");
       setForgotConfirmPassword("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reset password.");
+      setError(err instanceof Error ? err.message : t("login.errors.resetFailed"));
     } finally {
       setForgotLoading(false);
     }
@@ -183,9 +185,9 @@ const Login = () => {
           <div className="space-y-4">
             <img src="/tatneft.png" alt="Tatneft" className="h-10 w-auto object-contain" />
             <div>
-              <h1 className="text-2xl font-semibold text-foreground">Sign in</h1>
+              <h1 className="text-2xl font-semibold text-foreground">{t("login.signIn")}</h1>
               <p className="text-sm text-muted-foreground">
-                Enter your credentials to continue.
+                {t("login.subtitle")}
               </p>
             </div>
           </div>
@@ -193,7 +195,7 @@ const Login = () => {
           {!user?.mustChangePassword && !forgotMode ? (
             <form onSubmit={onSubmit} className="space-y-3">
               <div className="space-y-1">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="username">{t("login.username")}</Label>
                 <div className="relative">
                   <User className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
                   <Input
@@ -207,7 +209,7 @@ const Login = () => {
                 </div>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{t("login.password")}</Label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
                   <Input
@@ -223,7 +225,7 @@ const Login = () => {
                     type="button"
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     onClick={() => setShowPassword((prev) => !prev)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={showPassword ? t("login.hidePassword") : t("login.showPassword")}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -232,7 +234,7 @@ const Login = () => {
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Checkbox checked={remember} onCheckedChange={(value) => setRemember(Boolean(value))} />
-                  <span>Remember me</span>
+                  <span>{t("login.rememberMe")}</span>
                 </label>
                 <Link
                   to="/login"
@@ -246,26 +248,26 @@ const Login = () => {
                     setForgotEmail("");
                   }}
                 >
-                  Forgot password?
+                  {t("login.forgotPassword")}
                 </Link>
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Signing in..." : "Sign in"}
+                {loading ? t("login.signingIn") : t("login.signIn")}
               </Button>
               {!remember && (
                 <p className="text-xs text-muted-foreground">
-                  Session will end when you sign out or clear browser data.
+                  {t("login.sessionHint")}
                 </p>
               )}
             </form>
           ) : !user?.mustChangePassword && forgotMode === "request" ? (
             <form onSubmit={requestPasswordReset} className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Enter your username and account email. We will send a password reset token.
+                {t("login.requestSubtitle")}
               </p>
               <div className="space-y-1">
-                <Label htmlFor="forgot-username">Username</Label>
+                <Label htmlFor="forgot-username">{t("login.username")}</Label>
                 <Input
                   id="forgot-username"
                   value={forgotUsername}
@@ -275,7 +277,7 @@ const Login = () => {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="forgot-email">Email</Label>
+                <Label htmlFor="forgot-email">{t("login.email")}</Label>
                 <Input
                   id="forgot-email"
                   type="email"
@@ -288,7 +290,7 @@ const Login = () => {
               {error && <p className="text-sm text-destructive">{error}</p>}
               {forgotMessage && <p className="text-sm text-muted-foreground">{forgotMessage}</p>}
               <Button type="submit" className="w-full" disabled={forgotLoading}>
-                {forgotLoading ? "Sending..." : "Send reset token"}
+                {forgotLoading ? t("login.sending") : t("login.sendResetToken")}
               </Button>
               <Button
                 type="button"
@@ -300,16 +302,16 @@ const Login = () => {
                   setError("");
                 }}
               >
-                Back to sign in
+                {t("login.backToSignIn")}
               </Button>
             </form>
           ) : !user?.mustChangePassword && forgotMode === "confirm" ? (
             <form onSubmit={confirmPasswordReset} className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Enter reset token and set a new password.
+                {t("login.confirmSubtitle")}
               </p>
               <div className="space-y-1">
-                <Label htmlFor="forgot-token">Reset token</Label>
+                <Label htmlFor="forgot-token">{t("login.resetToken")}</Label>
                 <Input
                   id="forgot-token"
                   value={forgotToken}
@@ -319,7 +321,7 @@ const Login = () => {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="forgot-new-password">New password</Label>
+                <Label htmlFor="forgot-new-password">{t("login.newPassword")}</Label>
                 <Input
                   id="forgot-new-password"
                   type="password"
@@ -330,7 +332,7 @@ const Login = () => {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="forgot-confirm-password">Confirm new password</Label>
+                <Label htmlFor="forgot-confirm-password">{t("login.confirmNewPassword")}</Label>
                 <Input
                   id="forgot-confirm-password"
                   type="password"
@@ -343,7 +345,7 @@ const Login = () => {
               {error && <p className="text-sm text-destructive">{error}</p>}
               {forgotMessage && <p className="text-sm text-muted-foreground">{forgotMessage}</p>}
               <Button type="submit" className="w-full" disabled={forgotLoading}>
-                {forgotLoading ? "Resetting..." : "Reset password"}
+                {forgotLoading ? t("login.resetting") : t("login.resetPassword")}
               </Button>
               <Button
                 type="button"
@@ -355,16 +357,16 @@ const Login = () => {
                   setError("");
                 }}
               >
-                Back to sign in
+                {t("login.backToSignIn")}
               </Button>
             </form>
           ) : (
             <form onSubmit={onChangePassword} className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                You must set a new password before continuing.
+                {t("login.mustChangeSubtitle")}
               </p>
               <div className="space-y-1">
-                <Label htmlFor="current-password">Current password</Label>
+                <Label htmlFor="current-password">{t("login.currentPassword")}</Label>
                 <Input
                   id="current-password"
                   type="password"
@@ -375,7 +377,7 @@ const Login = () => {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="new-password">New password</Label>
+                <Label htmlFor="new-password">{t("login.newPassword")}</Label>
                 <Input
                   id="new-password"
                   type="password"
@@ -386,7 +388,7 @@ const Login = () => {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="confirm-password">Confirm new password</Label>
+                <Label htmlFor="confirm-password">{t("login.confirmPassword")}</Label>
                 <Input
                   id="confirm-password"
                   type="password"
@@ -398,7 +400,7 @@ const Login = () => {
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={changingPassword}>
-                {changingPassword ? "Updating..." : "Update password"}
+                {changingPassword ? t("login.updating") : t("login.updatePassword")}
               </Button>
             </form>
           )}

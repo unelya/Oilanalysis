@@ -13,6 +13,7 @@ import Login from "./pages/Login";
 import { AuthProvider, useAuth } from "./hooks/use-auth";
 import { ThemeProvider } from "./hooks/use-theme";
 import { Role } from "./types/kanban";
+import { I18nProvider } from "./i18n";
 
 const queryClient = new QueryClient();
 
@@ -39,56 +40,58 @@ const App = () => (
       <Toaster />
       <Sonner />
       <ThemeProvider>
-        <AuthProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Navigate to="/board" replace />} />
-              <Route path="/login" element={<Login />} />
-              <Route
-                path="/board"
-                element={
-                  <RequireAuth>
-                    <Index />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/samples"
-                element={
-                  <RequireAuth>
-                    <Samples />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/actions"
-                element={
-                  <RequireRole allowed={["action_supervision", "admin"]}>
-                    <Actions />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/admin"
-                element={
-                  <RequireRole allowed={["admin"]}>
-                    <Admin />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <RequireRole allowed={["admin"]}>
-                    <Settings />
-                  </RequireRole>
-                }
-              />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </AuthProvider>
+        <I18nProvider>
+          <AuthProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Navigate to="/board" replace />} />
+                <Route path="/login" element={<Login />} />
+                <Route
+                  path="/board"
+                  element={
+                    <RequireAuth>
+                      <Index />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/samples"
+                  element={
+                    <RequireAuth>
+                      <Samples />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/actions"
+                  element={
+                    <RequireRole allowed={["action_supervision", "admin"]}>
+                      <Actions />
+                    </RequireRole>
+                  }
+                />
+                <Route
+                  path="/admin"
+                  element={
+                    <RequireRole allowed={["admin"]}>
+                      <Admin />
+                    </RequireRole>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <RequireRole allowed={["admin"]}>
+                      <Settings />
+                    </RequireRole>
+                  }
+                />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </AuthProvider>
+        </I18nProvider>
       </ThemeProvider>
     </TooltipProvider>
   </QueryClientProvider>
