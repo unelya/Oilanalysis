@@ -3,12 +3,16 @@ import fs from "node:fs/promises";
 
 const AUTH_FILE = "tests/e2e/.auth/admin.json";
 const STORAGE_KEY = "labsync-auth";
+const BACKEND_BASE_URL = "http://127.0.0.1:8000";
 
 test("authenticate as admin and persist storage state", async ({ page, request }) => {
-  const loginRes = await request.post("/api/auth/login", {
+  const loginRes = await request.post(`${BACKEND_BASE_URL}/auth/login`, {
     data: { username: "admin", password: "admin" },
   });
-  expect(loginRes.ok(), `Login failed with status ${loginRes.status()}`).toBeTruthy();
+  if (!loginRes.ok()) {
+    const body = await loginRes.text();
+    throw new Error(`Login failed with status ${loginRes.status()}: ${body}`);
+  }
   const loginData = (await loginRes.json()) as {
     token: string;
     role: string;
@@ -19,11 +23,14 @@ test("authenticate as admin and persist storage state", async ({ page, request }
 
   let token = loginData.token;
   if (loginData.must_change_password) {
-    const changeRes = await request.post("/api/auth/change-password", {
+    const changeRes = await request.post(`${BACKEND_BASE_URL}/auth/change-password`, {
       headers: { Authorization: `Bearer ${token}` },
       data: { current_password: "admin", new_password: "Admin12345!" },
     });
-    expect(changeRes.ok(), `Password change failed with status ${changeRes.status()}`).toBeTruthy();
+    if (!changeRes.ok()) {
+      const body = await changeRes.text();
+      throw new Error(`Password change failed with status ${changeRes.status()}: ${body}`);
+    }
     const changeData = (await changeRes.json()) as {
       token: string;
       role: string;
