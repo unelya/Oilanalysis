@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 import { Role } from "@/types/kanban";
 
 interface AuthUser {
@@ -53,19 +53,23 @@ async function apiChangePassword(token: string, currentPassword: string, newPass
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-
-  useEffect(() => {
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    if (typeof window === "undefined") return null;
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
         const parsed = JSON.parse(stored) as AuthUser;
-        setUser({ ...parsed, roles: parsed.roles ?? [parsed.role], mustChangePassword: Boolean((parsed as any).mustChangePassword) });
+        return {
+          ...parsed,
+          roles: parsed.roles ?? [parsed.role],
+          mustChangePassword: Boolean((parsed as any).mustChangePassword),
+        };
       } catch {
         localStorage.removeItem(STORAGE_KEY);
       }
     }
-  }, []);
+    return null;
+  });
 
   const login = async (username: string, password: string) => {
     const data = await apiLogin(username, password);

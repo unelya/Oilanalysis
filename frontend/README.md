@@ -5,7 +5,7 @@ Kanban-style UI for tracking wells, samples, lab work, and technological actions
 ## Quick start
 
 ```sh
-cd final-project/frontend
+cd /workspaces/oilanalysis/frontend
 npm install
 npm run dev
 ```
