@@ -12,6 +12,7 @@ describe("api integration", () => {
       well_id: "W-1",
       horizon: "H1",
       sampling_date: "2024-02-02",
+      arrival_date: "2024-02-03",
       status: "new",
       storage_location: "Fridge 1 · Bin 1 · Place 1",
       assigned_to: "Alex",
@@ -27,6 +28,7 @@ describe("api integration", () => {
       wellId: "W-1",
       horizon: "H1",
       samplingDate: "2024-02-02",
+      arrivalDate: "2024-02-03",
       storageLocation: "Fridge 1 · Bin 1 · Place 1",
     });
 
@@ -44,6 +46,7 @@ describe("api integration", () => {
       well_id: "W-2",
       horizon: "H2",
       sampling_date: "2024-02-03",
+      arrival_date: "2024-02-04",
       status: "progress",
       storage_location: "Fridge 2 · Bin 2 · Place 2",
       assigned_to: null,
@@ -80,6 +83,7 @@ describe("api integration", () => {
           well_id: "W-3",
           horizon: "H3",
           sampling_date: "2024-02-04",
+          arrival_date: "2024-02-05",
           status: "new",
           storage_location: "Shelf A",
           assigned_to: "Sam",

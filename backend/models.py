@@ -22,6 +22,7 @@ class SampleModel(Base):
     well_id: Mapped[str] = mapped_column(String, nullable=False)
     horizon: Mapped[str] = mapped_column(String, nullable=False)
     sampling_date: Mapped[str] = mapped_column(String, nullable=False)
+    arrival_date: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[SampleStatus] = mapped_column(Enum(SampleStatus), default=SampleStatus.new, nullable=False)
     storage_location: Mapped[str | None] = mapped_column(String, nullable=True)
     assigned_to: Mapped[str | None] = mapped_column(String, nullable=True)

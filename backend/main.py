@@ -317,6 +317,7 @@ class Sample(BaseModel):
   well_id: str
   horizon: str
   sampling_date: str
+  arrival_date: str
   status: str = "new"
   storage_location: str | None = None
   assigned_to: str | None = None
@@ -363,6 +364,7 @@ async def create_sample(sample: Sample, db: Session = Depends(get_db)):
     well_id=sample.well_id,
     horizon=sample.horizon,
     sampling_date=sample.sampling_date,
+    arrival_date=sample.arrival_date,
     status=SampleStatus(sample.status),
     storage_location=sample.storage_location,
     assigned_to=sample.assigned_to,
@@ -382,6 +384,7 @@ async def update_sample(sample_id: str, payload: dict, request: Request, db: Ses
     "well_id": row.well_id,
     "horizon": row.horizon,
     "sampling_date": row.sampling_date,
+    "arrival_date": row.arrival_date,
     "status": row.status.value,
     "storage_location": row.storage_location or "",
     "assigned_to": row.assigned_to or "",
@@ -402,6 +405,7 @@ async def update_sample(sample_id: str, payload: dict, request: Request, db: Ses
     "well_id": row.well_id,
     "horizon": row.horizon,
     "sampling_date": row.sampling_date,
+    "arrival_date": row.arrival_date,
     "status": row.status.value,
     "storage_location": row.storage_location or "",
     "assigned_to": row.assigned_to or "",
@@ -416,7 +420,7 @@ async def update_sample(sample_id: str, payload: dict, request: Request, db: Ses
       details=f"status:{old_status}->{row.status.value}",
     )
   detail_parts: list[str] = []
-  for key in ("well_id", "horizon", "sampling_date", "storage_location", "assigned_to"):
+  for key in ("well_id", "horizon", "sampling_date", "arrival_date", "storage_location", "assigned_to"):
     if key not in payload:
       continue
     if old_values[key] != new_values[key]:
@@ -461,6 +465,7 @@ def to_sample_out(row: SampleModel):
     well_id=row.well_id,
     horizon=row.horizon,
     sampling_date=row.sampling_date,
+    arrival_date=row.arrival_date,
     status=row.status.value,
     storage_location=row.storage_location,
     assigned_to=row.assigned_to,

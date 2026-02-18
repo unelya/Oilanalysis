@@ -6,6 +6,7 @@ class Sample(BaseModel):
     well_id: str = Field(min_length=1, max_length=32)
     horizon: str = Field(min_length=1, max_length=32)
     sampling_date: str = Field(min_length=4, max_length=32)
+    arrival_date: str = Field(min_length=4, max_length=32)
     status: str = "new"
     storage_location: str | None = Field(default=None, max_length=128)
 

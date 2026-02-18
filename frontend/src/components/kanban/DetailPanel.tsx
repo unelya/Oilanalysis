@@ -50,6 +50,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
     wellId: '',
     horizon: '',
     samplingDate: '',
+    arrivalDate: '',
     storageLocation: '',
     analysisType: '',
     analysisStatus: 'planned',
@@ -394,6 +395,16 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                 <DateEditable
                   value={card.samplingDate}
                   onSave={(val) => onUpdateSample?.({ sampling_date: val })}
+                  readOnly={!onUpdateSample}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  <Calendar className="w-3 h-3" /> {t("panel.arrivalDate")}
+                </label>
+                <DateEditable
+                  value={card.arrivalDate}
+                  onSave={(val) => onUpdateSample?.({ arrival_date: val })}
                   readOnly={!onUpdateSample}
                 />
               </div>

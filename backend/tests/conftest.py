@@ -138,6 +138,7 @@ def make_sample_payload() -> Callable[..., dict[str, str]]:
             "well_id": f"W-{idx:03d}",
             "horizon": f"H{idx}",
             "sampling_date": "2026-01-01",
+            "arrival_date": "2026-01-02",
             "status": "new",
             "storage_location": f"Rack {idx}",
         }

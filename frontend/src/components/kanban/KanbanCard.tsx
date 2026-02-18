@@ -241,6 +241,10 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
           </span>
           <span className="text-muted-foreground">{t("board.cardShort.horizon")} {card.horizon}</span>
         </div>
+        <div className="flex items-center gap-2">
+          <Calendar className="w-3 h-3" />
+          <span>{t("board.card.arrival")} {card.arrivalDate}</span>
+        </div>
         {card.deletedReason && card.statusLabel?.toLowerCase().includes('deleted') && (
           <div className="text-[11px] text-destructive leading-snug">
             {t("board.card.reason")}: {card.deletedReason}

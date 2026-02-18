@@ -27,14 +27,6 @@ const MOCK_FIELDS = ["Field A", "Field B", "Field C", "Field D"];
 const hashSeed = (value?: string) =>
   (value ?? "").split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
 
-const addDays = (dateStr: string, days: number) => {
-  const base = new Date(dateStr);
-  if (Number.isNaN(base.getTime())) return "—";
-  const next = new Date(base);
-  next.setDate(base.getDate() + days);
-  return next.toISOString().slice(0, 10);
-};
-
 const mergeMethods = (
   methods: { name: string; status: PlannedAnalysisCard["status"]; assignedTo?: string[] }[],
 ) => {
@@ -185,6 +177,7 @@ const Samples = () => {
           wellId: "—",
           horizon: "—",
           samplingDate: "—",
+          arrivalDate: "—",
           storageLocation: t("samplesPage.values.unassigned"),
           analysisType: t("board.card.sample"),
           assignedTo: t("samplesPage.values.unassigned"),
@@ -264,7 +257,7 @@ const Samples = () => {
         shop: MOCK_SHOPS[seed % MOCK_SHOPS.length],
         field: MOCK_FIELDS[seed % MOCK_FIELDS.length],
         injectionWell: seed % 2 === 0,
-        arrivalDate: card.samplingDate && card.samplingDate !== "—" ? addDays(card.samplingDate, (seed % 5) + 1) : "—",
+        arrivalDate: card.arrivalDate || "—",
         methods,
         analysisBadge,
         labStatus,

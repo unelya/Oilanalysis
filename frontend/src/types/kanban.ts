@@ -5,6 +5,7 @@ export interface Sample {
   wellId: string;
   horizon: string;
   samplingDate: string;
+  arrivalDate: string;
   status: 'received' | 'stored' | 'dispatched';
   storageLocation: string;
 }
@@ -25,6 +26,7 @@ export interface KanbanCard {
   wellId: string;
   horizon: string;
   samplingDate: string;
+  arrivalDate: string;
   storageLocation: string;
   analysisType: string;
   assignedTo?: string;
@@ -53,6 +55,7 @@ export interface NewCardPayload {
   wellId: string;
   horizon: string;
   samplingDate: string;
+  arrivalDate: string;
   storageLocation?: string;
 }
 

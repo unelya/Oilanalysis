@@ -117,6 +117,7 @@ def test_sample_to_analysis_workflow(client):
         "well_id": "W-10",
         "horizon": "H1",
         "sampling_date": "2024-01-01",
+        "arrival_date": "2024-01-02",
         "status": "new",
         "storage_location": "Shelf A",
         "assigned_to": "Alex",
@@ -280,6 +281,7 @@ def test_lab_operator_can_assign_only_self(client):
         "well_id": "W-20",
         "horizon": "H2",
         "sampling_date": "2024-01-01",
+        "arrival_date": "2024-01-02",
         "status": "new",
         "storage_location": "Shelf B",
     }
@@ -313,6 +315,7 @@ def test_admin_can_assign_any_lab_operator(client):
         "well_id": "W-21",
         "horizon": "H3",
         "sampling_date": "2024-01-01",
+        "arrival_date": "2024-01-02",
         "status": "new",
         "storage_location": "Shelf C",
     }
@@ -349,6 +352,7 @@ def test_method_permission_controls_assignment(client):
         "well_id": "W-22",
         "horizon": "H4",
         "sampling_date": "2024-01-01",
+        "arrival_date": "2024-01-02",
         "status": "new",
         "storage_location": "Shelf D",
     }
@@ -398,6 +402,7 @@ def test_lab_operator_self_assign_keeps_existing_assignees(client):
         "well_id": "W-23",
         "horizon": "H5",
         "sampling_date": "2024-01-01",
+        "arrival_date": "2024-01-02",
         "status": "new",
         "storage_location": "Shelf E",
     }
@@ -426,6 +431,7 @@ def test_admin_event_log_listing(client):
         "well_id": "W-24",
         "horizon": "H6",
         "sampling_date": "2024-01-01",
+        "arrival_date": "2024-01-02",
         "status": "new",
         "storage_location": "Shelf F",
     }

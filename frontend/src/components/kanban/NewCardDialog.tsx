@@ -33,19 +33,23 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
     wellId: '',
     horizon: '',
     samplingDate: today,
+    arrivalDate: today,
     storageLocation: '',
   });
   const [storageParts, setStorageParts] = useState({ fridge: '', bin: '', place: '' });
   const [error, setError] = useState('');
   const [dateOpen, setDateOpen] = useState(false);
+  const [arrivalDateOpen, setArrivalDateOpen] = useState(false);
   const isFutureSamplingDate = form.samplingDate > today;
+  const isFutureArrivalDate = form.arrivalDate > today;
 
   useEffect(() => {
     if (!dialogOpen) {
-      setForm({ sampleId: '', wellId: '', horizon: '', samplingDate: today, storageLocation: '' });
+      setForm({ sampleId: '', wellId: '', horizon: '', samplingDate: today, arrivalDate: today, storageLocation: '' });
       setStorageParts({ fridge: '', bin: '', place: '' });
       setError('');
       setDateOpen(false);
+      setArrivalDateOpen(false);
     }
   }, [dialogOpen, today]);
 
@@ -64,12 +68,16 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!form.sampleId || !form.wellId || !form.horizon || !form.samplingDate) {
+    if (!form.sampleId || !form.wellId || !form.horizon || !form.samplingDate || !form.arrivalDate) {
       setError(t('board.newSampleDialog.errors.required'));
       return;
     }
     if (isFutureSamplingDate) {
       setError(t('board.newSampleDialog.errors.futureDate'));
+      return;
+    }
+    if (isFutureArrivalDate) {
+      setError(t('board.newSampleDialog.errors.futureArrivalDate'));
       return;
     }
     const normalized = form.sampleId.trim().toLowerCase();
@@ -155,6 +163,35 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
             </Popover>
           </div>
           <div className="space-y-1">
+            <Label htmlFor="arrivalDate">{t("board.newSampleDialog.arrivalDate")}</Label>
+            <Popover open={arrivalDateOpen} onOpenChange={setArrivalDateOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal field-muted"
+                  type="button"
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  {form.arrivalDate || t("board.newSampleDialog.pickDate")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0" align="start">
+                <CalendarCmp
+                  mode="single"
+                  selected={form.arrivalDate ? new Date(form.arrivalDate) : new Date()}
+                  disabled={{ after: new Date() }}
+                  onSelect={(date) => {
+                    const next = date ? format(date, 'yyyy-MM-dd') : today;
+                    setForm((prev) => ({ ...prev, arrivalDate: next }));
+                    setError('');
+                    setArrivalDateOpen(false);
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-1">
             <Label>{t("board.newSampleDialog.storageLocation")}</Label>
             <div className="grid grid-cols-3 gap-2">
               <div className="space-y-1">
@@ -189,10 +226,17 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
           {isFutureSamplingDate && (
             <p className="text-sm text-destructive">{t("board.newSampleDialog.errors.futureDate")}</p>
           )}
-          {error && error !== t("board.newSampleDialog.errors.futureDate") && <p className="text-sm text-destructive">{error}</p>}
+          {isFutureArrivalDate && (
+            <p className="text-sm text-destructive">{t("board.newSampleDialog.errors.futureArrivalDate")}</p>
+          )}
+          {error &&
+            error !== t("board.newSampleDialog.errors.futureDate") &&
+            error !== t("board.newSampleDialog.errors.futureArrivalDate") && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
           <DialogFooter className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t("board.cancel")}</Button>
-            <Button type="submit" disabled={isFutureSamplingDate}>{t("board.newSampleDialog.create")}</Button>
+            <Button type="submit" disabled={isFutureSamplingDate || isFutureArrivalDate}>{t("board.newSampleDialog.create")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

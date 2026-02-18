@@ -122,6 +122,7 @@ const Admin = () => {
     well_id: t("admin.page.event.details.keys.well_id"),
     horizon: t("admin.page.event.details.keys.horizon"),
     sampling_date: t("admin.page.event.details.keys.sampling_date"),
+    arrival_date: t("admin.page.event.details.keys.arrival_date"),
     storage_location: t("admin.page.event.details.keys.storage_location"),
     assigned_to: t("admin.page.event.details.keys.assigned_to"),
     sample: t("admin.page.event.details.keys.sample"),

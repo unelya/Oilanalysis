@@ -1016,6 +1016,7 @@ export function KanbanBoard({
               wellId: '000',
               horizon: '—',
               samplingDate: '2026-01-01',
+              arrivalDate: '2026-01-02',
               storageLocation: '—',
               analysisType: 'Sample',
               assignedTo: 'Mock',
@@ -1255,6 +1256,7 @@ export function KanbanBoard({
         wellId: b.date,
         horizon: '',
         samplingDate: b.date,
+        arrivalDate: b.date,
         storageLocation: '—',
         analysisType: 'Batch',
         assignedTo: t("common.actionSupervision"),
@@ -1269,6 +1271,7 @@ export function KanbanBoard({
         wellId: '',
         horizon: '',
         samplingDate: '',
+        arrivalDate: '',
         storageLocation: '—',
         analysisType: 'Conflict',
         assignedTo: t("common.actionSupervision"),
@@ -1830,6 +1833,7 @@ export function KanbanBoard({
       statusLabel: card.statusLabel,
       storageLocation: card.storageLocation,
       samplingDate: card.samplingDate,
+      arrivalDate: card.arrivalDate,
       wellId: card.wellId,
       horizon: card.horizon,
       assignedTo: card.assignedTo,
@@ -1869,6 +1873,7 @@ export function KanbanBoard({
       if (prev.statusLabel !== undefined && current.statusLabel !== prev.statusLabel) return false;
       if (prev.storageLocation !== undefined && current.storageLocation !== prev.storageLocation) return false;
       if (prev.samplingDate !== undefined && current.samplingDate !== prev.samplingDate) return false;
+      if (prev.arrivalDate !== undefined && current.arrivalDate !== prev.arrivalDate) return false;
       if (prev.wellId !== undefined && current.wellId !== prev.wellId) return false;
       if (prev.horizon !== undefined && current.horizon !== prev.horizon) return false;
       if (prev.assignedTo !== undefined && current.assignedTo !== prev.assignedTo) return false;
@@ -2335,6 +2340,7 @@ export function KanbanBoard({
     if (snapshot.status) payload.status = snapshot.status;
     if (snapshot.storageLocation !== undefined) payload.storage_location = snapshot.storageLocation;
     if (snapshot.samplingDate) payload.sampling_date = snapshot.samplingDate;
+    if (snapshot.arrivalDate) payload.arrival_date = snapshot.arrivalDate;
     if (snapshot.wellId) payload.well_id = snapshot.wellId;
     if (snapshot.horizon) payload.horizon = snapshot.horizon;
     if (snapshot.assignedTo) payload.assigned_to = snapshot.assignedTo;
@@ -2378,6 +2384,7 @@ export function KanbanBoard({
       const fieldPayload: Record<string, string | undefined> = {};
       if (payload.storage_location !== undefined && !payload.status) fieldPayload.storage_location = payload.storage_location;
       if (payload.sampling_date) fieldPayload.sampling_date = payload.sampling_date;
+      if (payload.arrival_date) fieldPayload.arrival_date = payload.arrival_date;
       if (payload.well_id) fieldPayload.well_id = payload.well_id;
       if (payload.horizon) fieldPayload.horizon = payload.horizon;
       if (payload.assigned_to) fieldPayload.assigned_to = payload.assigned_to;
@@ -2844,6 +2851,7 @@ export function KanbanBoard({
           wellId: payload.wellId,
           horizon: payload.horizon,
           samplingDate: payload.samplingDate,
+          arrivalDate: payload.arrivalDate,
           storageLocation: payload.storageLocation ?? 'Unassigned',
           sampleStatus: 'new',
         };
@@ -3292,6 +3300,7 @@ export function KanbanBoard({
             status: prevCard.status,
             storageLocation: prevCard.storageLocation,
             samplingDate: prevCard.samplingDate,
+            arrivalDate: prevCard.arrivalDate,
             wellId: prevCard.wellId,
             horizon: prevCard.horizon,
             assignedTo: prevCard.assignedTo,
@@ -4280,6 +4289,7 @@ function mapSampleUpdates(card: KanbanCard, updates: Record<string, string>) {
   return {
     storageLocation: updates.storage_location ?? card.storageLocation,
     samplingDate: updates.sampling_date ?? card.samplingDate,
+    arrivalDate: updates.arrival_date ?? card.arrivalDate,
     wellId: updates.well_id ?? card.wellId,
     horizon: updates.horizon ?? card.horizon,
     status: (updates.status as KanbanCard['status']) ?? card.status,
