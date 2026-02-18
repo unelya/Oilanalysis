@@ -10,9 +10,10 @@ import { useI18n } from "@/i18n";
 type HealthStatus = "idle" | "checking" | "ok" | "error";
 
 const Settings = () => {
-  const { language, setLanguage, t } = useI18n();
+  const { language, t } = useI18n();
   const [health, setHealth] = useState<HealthStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const languageLabel = language === "ru" ? t("common.russian") : t("common.english");
 
   const checkHealth = async () => {
     setHealth("checking");
@@ -67,14 +68,9 @@ const Settings = () => {
             <Separator />
             <div className="flex items-center gap-3">
               <span className="text-sm text-muted-foreground">{t("common.language")}</span>
-              <select
-                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as "en" | "ru")}
-              >
-                <option value="en">{t("common.english")}</option>
-                <option value="ru">{t("common.russian")}</option>
-              </select>
+              <Badge variant="outline" className="h-8 px-3 text-sm">
+                {languageLabel}
+              </Badge>
             </div>
             <div className="flex items-center gap-3">
               <Badge className={badgeTone}>
