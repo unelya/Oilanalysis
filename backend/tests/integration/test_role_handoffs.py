@@ -36,14 +36,14 @@ def test_lab_operator_can_assign_only_self(
         username="handoff.lab.self",
         full_name="Handoff Lab Self",
         email="handoff.lab.self@example.com",
-        method_permissions=["SARA", "IR", "Mass Spectrometry", "Viscosity"],
+        method_permissions=["SARA", "IR", "Mass Spectrometry", "Viscosity", "Electrophoresis"],
     )
     other_lab = user_factory(
         role="lab_operator",
         username="handoff.lab.other",
         full_name="Handoff Lab Other",
         email="handoff.lab.other@example.com",
-        method_permissions=["SARA", "IR", "Mass Spectrometry", "Viscosity"],
+        method_permissions=["SARA", "IR", "Mass Spectrometry", "Viscosity", "Electrophoresis"],
     )
 
     analysis = _create_analysis_for_sample(
@@ -89,14 +89,14 @@ def test_admin_can_assign_multiple_lab_operators(
         username="handoff.lab.one",
         full_name="Handoff Lab One",
         email="handoff.lab.one@example.com",
-        method_permissions=["SARA", "IR", "Mass Spectrometry", "Viscosity"],
+        method_permissions=["SARA", "IR", "Mass Spectrometry", "Viscosity", "Electrophoresis"],
     )
     lab_two = user_factory(
         role="lab_operator",
         username="handoff.lab.two",
         full_name="Handoff Lab Two",
         email="handoff.lab.two@example.com",
-        method_permissions=["SARA", "IR", "Mass Spectrometry", "Viscosity"],
+        method_permissions=["SARA", "IR", "Mass Spectrometry", "Viscosity", "Electrophoresis"],
     )
 
     analysis = _create_analysis_for_sample(
@@ -172,7 +172,7 @@ def test_action_supervision_cannot_assign_planned_analysis(
         username="handoff.action.lab",
         full_name="Handoff Action Lab",
         email="handoff.action.lab@example.com",
-        method_permissions=["SARA", "IR", "Mass Spectrometry", "Viscosity"],
+        method_permissions=["SARA", "IR", "Mass Spectrometry", "Viscosity", "Electrophoresis"],
     )
 
     analysis = _create_analysis_for_sample(

@@ -116,7 +116,7 @@ def canonical_users(user_factory: Callable[..., dict]) -> dict[str, dict]:
             username="workflow.lab",
             full_name="Workflow Lab",
             email="workflow.lab@example.com",
-            method_permissions=["SARA", "IR", "Mass Spectrometry", "Viscosity"],
+            method_permissions=["SARA", "IR", "Mass Spectrometry", "Viscosity", "Electrophoresis"],
         ),
         "action": user_factory(
             role="action_supervision",

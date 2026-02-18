@@ -30,6 +30,7 @@ const Login = () => {
   const [forgotMessage, setForgotMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
   if (user && !user.mustChangePassword) {
     return <Navigate to="/board" replace />;
@@ -107,6 +108,10 @@ const Login = () => {
       setError(t("login.errors.emailRequired"));
       return;
     }
+    if (!isValidEmail(forgotEmail.trim())) {
+      setError(t("login.errors.emailInvalid"));
+      return;
+    }
     setForgotLoading(true);
     try {
       const res = await fetch("/api/auth/request-password-reset", {
@@ -116,7 +121,7 @@ const Login = () => {
       });
       const payload = (await res.json()) as { message?: string; reset_token?: string; detail?: string };
       if (!res.ok) {
-        throw new Error(payload.detail || `Request failed: ${res.status}`);
+        throw new Error(payload.detail || t("login.errors.requestFailedWithStatus", { status: res.status }));
       }
       setForgotMessage(payload.message || t("login.messages.requestSuccess"));
       if (payload.reset_token) {
@@ -157,7 +162,7 @@ const Login = () => {
       });
       const payload = (await res.json()) as { detail?: string };
       if (!res.ok) {
-        throw new Error(payload.detail || `Reset failed: ${res.status}`);
+        throw new Error(payload.detail || t("login.errors.resetFailedWithStatus", { status: res.status }));
       }
       setForgotMessage(t("login.messages.resetSuccess"));
       setForgotMode(null);
@@ -280,7 +285,8 @@ const Login = () => {
                 <Label htmlFor="forgot-email">{t("login.email")}</Label>
                 <Input
                   id="forgot-email"
-                  type="email"
+                  type="text"
+                  inputMode="email"
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
                   autoComplete="email"

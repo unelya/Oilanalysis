@@ -27,7 +27,7 @@ import { useI18n } from "@/i18n";
 import { getMethodLabel } from "@/lib/method-labels";
 
 const roleIds = ["warehouse_worker", "lab_operator", "action_supervision", "admin"] as const;
-const methodOptions = ["SARA", "IR", "Mass Spectrometry", "Viscosity"];
+const methodOptions = ["SARA", "IR", "Mass Spectrometry", "Viscosity", "Electrophoresis"];
 const userGridCols = "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.35fr)_120px]";
 const eventEntityTypes = ["sample", "planned_analysis", "conflict", "user"];
 const eventActions = [
@@ -749,7 +749,6 @@ const Admin = () => {
                                         >
                                           {selected && <Check className="h-3 w-3" />}
                                         </div>
-                                        <span>{methodName}</span>
                                         <span>{getMethodLabel(methodName, t)}</span>
                                       </CommandItem>
                                     );

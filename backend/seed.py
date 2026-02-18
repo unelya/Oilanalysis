@@ -13,7 +13,7 @@ except ImportError:  # pragma: no cover
 DEFAULT_USERS = [
     {"username": "admin", "full_name": "Admin User", "email": "admin@labsync.local", "role": "admin", "roles": "admin"},
 ]
-DEFAULT_METHODS = ["SARA", "IR", "Mass Spectrometry", "Viscosity"]
+DEFAULT_METHODS = ["SARA", "IR", "Mass Spectrometry", "Viscosity", "Electrophoresis"]
 DEFAULT_USER_PASSWORD = "Tatneft123"
 
 

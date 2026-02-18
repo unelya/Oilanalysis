@@ -9,8 +9,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { mockActions } from "@/data/actions";
+import { useI18n } from "@/i18n";
 
 const Actions = () => {
+  const { t } = useI18n();
   const [sortMode, setSortMode] = useState<
     | "none"
     | "well:asc"
@@ -106,38 +108,38 @@ const Actions = () => {
           <div className="px-6 py-4 border-b border-border">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-foreground">Actions registry</h2>
-                <p className="text-sm text-muted-foreground">Mock technological actions table.</p>
+                <h2 className="text-xl font-semibold text-foreground">{t("actionsPage.title")}</h2>
+                <p className="text-sm text-muted-foreground">{t("actionsPage.subtitle")}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 justify-end">
                 <Input
                   value={wellFilter}
                   onChange={(event) => setWellFilter(event.target.value)}
-                  placeholder="Filter Well ID"
+                  placeholder={t("actionsPage.filters.wellId")}
                   className="h-8 w-36"
                 />
                 <Input
                   value={actionFilter}
                   onChange={(event) => setActionFilter(event.target.value)}
-                  placeholder="Filter Action ID"
+                  placeholder={t("actionsPage.filters.actionId")}
                   className="h-8 w-36"
                 />
                 <Input
                   value={startFilter}
                   onChange={(event) => setStartFilter(event.target.value)}
-                  placeholder="Filter start date"
+                  placeholder={t("actionsPage.filters.startDate")}
                   className="h-8 w-40"
                 />
                 <Input
                   value={endFilter}
                   onChange={(event) => setEndFilter(event.target.value)}
-                  placeholder="Filter end date"
+                  placeholder={t("actionsPage.filters.endDate")}
                   className="h-8 w-40"
                 />
                 <Input
                   value={actionTypeFilter}
                   onChange={(event) => setActionTypeFilter(event.target.value)}
-                  placeholder="Filter action type"
+                  placeholder={t("actionsPage.filters.actionType")}
                   className="h-8 w-44"
                 />
                 <Popover
@@ -158,19 +160,19 @@ const Actions = () => {
                       ) : (
                         <ArrowUp className="w-4 h-4" />
                       )}
-                      Sort {sortMode !== "none" ? "(1)" : ""}
+                      {t("actionsPage.sort.button")} {sortMode !== "none" ? "(1)" : ""}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="p-3 w-80" align="end">
                     <div className="space-y-3 text-sm">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-foreground">Sort order</p>
+                        <p className="text-sm font-semibold text-foreground">{t("actionsPage.sort.order")}</p>
                         <Button type="button" variant="ghost" size="sm" onClick={() => setSortDraft("none")}>
-                          Reset
+                          {t("actionsPage.common.reset")}
                         </Button>
                       </div>
                       <div className="space-y-2">
-                        <p className="text-xs text-muted-foreground">Sort by</p>
+                        <p className="text-xs text-muted-foreground">{t("actionsPage.sort.by")}</p>
                         <div className="flex items-center gap-2">
                           <Select
                             value={sortMeta.isNone ? "" : sortMeta.field}
@@ -181,15 +183,15 @@ const Actions = () => {
                             }}
                           >
                             <SelectTrigger className="h-9 flex-1">
-                              <SelectValue placeholder="Choose field" />
+                              <SelectValue placeholder={t("actionsPage.sort.chooseField")} />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="well">Well ID</SelectItem>
-                              <SelectItem value="action">Action ID</SelectItem>
-                              <SelectItem value="start">Start date</SelectItem>
-                              <SelectItem value="end">End date</SelectItem>
-                              <SelectItem value="incremental">Actual incremental oil production investment year, t</SelectItem>
-                              <SelectItem value="rate">Actual average daily production rate before the action, t/day</SelectItem>
+                              <SelectItem value="well">{t("actionsPage.columns.wellId")}</SelectItem>
+                              <SelectItem value="action">{t("actionsPage.columns.actionId")}</SelectItem>
+                              <SelectItem value="start">{t("actionsPage.columns.startDate")}</SelectItem>
+                              <SelectItem value="end">{t("actionsPage.columns.endDate")}</SelectItem>
+                              <SelectItem value="incremental">{t("actionsPage.columns.incrementalOil")}</SelectItem>
+                              <SelectItem value="rate">{t("actionsPage.columns.avgDailyRate")}</SelectItem>
                             </SelectContent>
                           </Select>
                           <div className="flex items-center gap-1 rounded-md border border-border p-1">
@@ -202,7 +204,7 @@ const Actions = () => {
                                 const field = sortMeta.field;
                                 setSortDraft(`${field}:asc` as typeof sortDraft);
                               }}
-                              aria-label="Ascending"
+                              aria-label={t("actionsPage.sort.ascending")}
                             >
                               <ArrowUp className="h-4 w-4" />
                             </Button>
@@ -215,7 +217,7 @@ const Actions = () => {
                                 const field = sortMeta.field;
                                 setSortDraft(`${field}:desc` as typeof sortDraft);
                               }}
-                              aria-label="Descending"
+                              aria-label={t("actionsPage.sort.descending")}
                             >
                               <ArrowDown className="h-4 w-4" />
                             </Button>
@@ -224,7 +226,7 @@ const Actions = () => {
                       </div>
                       <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
                         <Button type="button" variant="ghost" size="sm" onClick={() => setSortOpen(false)}>
-                          Cancel
+                          {t("actionsPage.common.cancel")}
                         </Button>
                         <Button
                           type="button"
@@ -234,7 +236,7 @@ const Actions = () => {
                             setSortOpen(false);
                           }}
                         >
-                          Apply
+                          {t("actionsPage.common.apply")}
                         </Button>
                       </div>
                     </div>
@@ -248,14 +250,14 @@ const Actions = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12 text-right">#</TableHead>
-                  <TableHead>Well ID</TableHead>
-                  <TableHead>Action ID</TableHead>
-                  <TableHead>Start date</TableHead>
-                  <TableHead>End date</TableHead>
-                  <TableHead>Success</TableHead>
-                  <TableHead>Action type</TableHead>
-                  <TableHead>Actual incremental oil production investment year, t</TableHead>
-                  <TableHead>Actual average daily production rate before the action, t/day</TableHead>
+                  <TableHead>{t("actionsPage.columns.wellId")}</TableHead>
+                  <TableHead>{t("actionsPage.columns.actionId")}</TableHead>
+                  <TableHead>{t("actionsPage.columns.startDate")}</TableHead>
+                  <TableHead>{t("actionsPage.columns.endDate")}</TableHead>
+                  <TableHead>{t("actionsPage.columns.success")}</TableHead>
+                  <TableHead>{t("actionsPage.columns.actionType")}</TableHead>
+                  <TableHead>{t("actionsPage.columns.incrementalOil")}</TableHead>
+                  <TableHead>{t("actionsPage.columns.avgDailyRate")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

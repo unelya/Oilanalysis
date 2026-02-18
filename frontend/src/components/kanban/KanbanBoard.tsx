@@ -20,7 +20,7 @@ import { useI18n } from '@/i18n';
 import { getMethodLabel } from '@/lib/method-labels';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
-const DEFAULT_ANALYSIS_TYPES = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
+const DEFAULT_ANALYSIS_TYPES = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity', 'Electrophoresis'];
 const METHOD_BLACKLIST = ['fsf', 'dadq'];
 const LAB_OVERRIDES_KEY = 'labsync-lab-overrides';
 const LAB_RETURN_KEY = 'labsync-lab-returned';
@@ -1415,14 +1415,18 @@ export function KanbanBoard({
       .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
     return unread.map((note) => ({
       id: `assign:${note.id}:${note.sampleId}`,
-      title: note.action === 'assigned' ? 'Method assignment' : 'Method unassignment',
+      title: note.action === 'assigned' ? t('board.notifications.methodAssignmentTitle') : t('board.notifications.methodUnassignmentTitle'),
       description:
         note.action === 'assigned'
-          ? `${note.method} on ${note.sampleId} assigned to you${note.actor ? ` by ${note.actor}` : ''}.`
-          : `${note.method} on ${note.sampleId} unassigned from you${note.actor ? ` by ${note.actor}` : ''}.`,
+          ? (note.actor
+            ? t('board.notifications.methodAssignedBy', { method: note.method, sampleId: note.sampleId, actor: note.actor })
+            : t('board.notifications.methodAssigned', { method: note.method, sampleId: note.sampleId }))
+          : (note.actor
+            ? t('board.notifications.methodUnassignedBy', { method: note.method, sampleId: note.sampleId, actor: note.actor })
+            : t('board.notifications.methodUnassigned', { method: note.method, sampleId: note.sampleId })),
       createdAt: note.createdAt,
     }));
-  }, [assignmentReadIds, assignmentVersion, currentUserKey]);
+  }, [assignmentReadIds, assignmentVersion, currentUserKey, t]);
 
   useEffect(() => {
     if (!onNotificationsChange) return;
@@ -1437,8 +1441,8 @@ export function KanbanBoard({
         .filter((card) => !createdSampleIds[card.sampleId] && !warehousePlannedRead[card.sampleId])
         .map((card) => ({
           id: `planned:${card.sampleId}`,
-          title: 'New planned sample',
-          description: `${card.sampleId} appeared in Planned without using “New sample”.`,
+          title: t('board.notifications.newPlannedSampleTitle'),
+          description: t('board.notifications.newPlannedSampleDesc', { sampleId: card.sampleId }),
           createdAt: nowIso,
         }));
       const returnedNotes = Object.entries(warehouseReturnHighlights)
@@ -1446,8 +1450,8 @@ export function KanbanBoard({
         .filter(([sampleId]) => !warehouseReturnRead[sampleId])
         .map(([sampleId]) => ({
           id: `returned:${sampleId}`,
-          title: 'Returned for analysis',
-          description: `${sampleId} was returned to Warehouse by Admin.`,
+          title: t('board.notifications.returnedForAnalysisTitle'),
+          description: t('board.notifications.returnedToWarehouseDesc', { sampleId }),
           createdAt: nowIso,
         }));
       onNotificationsChange([...plannedNotes, ...returnedNotes, ...assignmentNotifications]);
@@ -1460,16 +1464,16 @@ export function KanbanBoard({
         .filter((card) => !actionUploadedRead[card.sampleId])
         .map((card) => ({
           id: `action-uploaded:${card.sampleId}`,
-          title: 'Uploaded batch',
-          description: `${card.sampleId} is in Uploaded batch.`,
+          title: t('board.notifications.uploadedBatchTitle'),
+          description: t('board.notifications.uploadedBatchDesc', { sampleId: card.sampleId }),
           createdAt: nowIso,
         }));
       const conflictNotes = conflictCards
         .filter((card) => !actionConflictRead[card.sampleId])
         .map((card) => ({
           id: `action-conflict:${card.sampleId}`,
-          title: 'Conflict detected',
-          description: `${card.sampleId} is in Conflicts.`,
+          title: t('board.notifications.conflictDetectedTitle'),
+          description: t('board.notifications.conflictDetectedDesc', { sampleId: card.sampleId }),
           createdAt: nowIso,
         }));
       onNotificationsChange([...uploadedNotes, ...conflictNotes, ...assignmentNotifications]);
@@ -1503,16 +1507,16 @@ export function KanbanBoard({
         .filter((sampleId) => !adminIssuesRead[sampleId])
         .map((sampleId) => ({
         id: `admin-issues:${sampleId}`,
-        title: 'Issue reported',
-        description: `${sampleId} is in Issues.`,
+        title: t('board.notifications.issueReportedTitle'),
+        description: t('board.notifications.issueReportedDesc', { sampleId }),
         createdAt: nowIso,
       }));
       const needsNotes = [...needsFromData]
         .filter((sampleId) => !adminNeedsRead[sampleId])
         .map((sampleId) => ({
         id: `admin-needs:${sampleId}`,
-        title: 'Needs attention',
-        description: `${sampleId} is in Needs attention.`,
+        title: t('board.notifications.needsAttentionTitle'),
+        description: t('board.notifications.needsAttentionDesc', { sampleId }),
         createdAt: nowIso,
       }));
       onNotificationsChange([...issueNotes, ...needsNotes, ...assignmentNotifications]);
@@ -1522,8 +1526,8 @@ export function KanbanBoard({
       .filter((card) => labPlannedUnread[card.sampleId] || !labPlannedRead[card.sampleId])
       .map((card) => ({
         id: `lab-planned:${card.sampleId}`,
-        title: 'New planned analysis',
-        description: `${card.sampleId} is in Planned.`,
+        title: t('board.notifications.newPlannedAnalysisTitle'),
+        description: t('board.notifications.newPlannedAnalysisDesc', { sampleId: card.sampleId }),
         createdAt: nowIso,
       }));
     const returnedSampleIds = new Set<string>();
@@ -1537,8 +1541,8 @@ export function KanbanBoard({
       .filter((sampleId) => !labReturnRead[sampleId])
       .map((sampleId) => ({
         id: `lab-returned:${sampleId}`,
-        title: 'Returned for analysis',
-        description: `${sampleId} was returned to Lab by Admin.`,
+        title: t('board.notifications.returnedForAnalysisTitle'),
+        description: t('board.notifications.returnedToLabDesc', { sampleId }),
         createdAt: nowIso,
       }));
     onNotificationsChange([...plannedNotes, ...returnedNotes, ...assignmentNotifications]);
@@ -1560,6 +1564,7 @@ export function KanbanBoard({
     adminIssuesRead,
     adminNeedsRead,
     assignmentNotifications,
+    t,
   ]);
 
   useEffect(() => {
@@ -2907,7 +2912,7 @@ export function KanbanBoard({
       if (!isAdminUser && !known.includes(name.toLowerCase())) {
         toast({
           title: "Invalid analysis type",
-          description: "Only SARA, IR, Mass Spectrometry, or Reology are allowed.",
+          description: "Only SARA, IR, Mass Spectrometry, Rheology, or Electrophoresis are allowed.",
           variant: "destructive",
         });
         return;

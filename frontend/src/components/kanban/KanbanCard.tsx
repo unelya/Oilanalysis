@@ -70,7 +70,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
       onClick?.();
     }
   };
-  const METHOD_ORDER = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
+  const METHOD_ORDER = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity', 'Electrophoresis'];
   const methodRank = (name: string) => {
     const idx = METHOD_ORDER.findIndex((m) => m.toLowerCase() === name.toLowerCase());
     return idx >= 0 ? idx : METHOD_ORDER.length + 100 + name.toLowerCase().charCodeAt(0);

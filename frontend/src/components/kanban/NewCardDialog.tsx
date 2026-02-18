@@ -65,27 +65,27 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!form.sampleId || !form.wellId || !form.horizon || !form.samplingDate) {
-      setError('All required fields must be filled');
+      setError(t('board.newSampleDialog.errors.required'));
       return;
     }
     if (isFutureSamplingDate) {
-      setError('Sampling date cannot be in the future');
+      setError(t('board.newSampleDialog.errors.futureDate'));
       return;
     }
     const normalized = form.sampleId.trim().toLowerCase();
     if (existingSampleIds.some((id) => id.trim().toLowerCase() === normalized)) {
-      setError('Sample ID already exists');
+      setError(t('board.newSampleDialog.errors.duplicateSampleId'));
       return;
     }
     let storageLocation = '';
     if (storageParts.fridge || storageParts.bin || storageParts.place) {
       if (!storageParts.fridge || !storageParts.bin || !storageParts.place) {
-        setError('Fill Fridge, Bin, and Place');
+        setError(t('board.newSampleDialog.errors.fillStorageParts'));
         return;
       }
       storageLocation = formatStorageLocation(storageParts);
       if (!isValidStorageLocation(storageLocation)) {
-        setError('Storage location must be "Fridge {A1} · Bin {B2} · Place {C3}"');
+        setError(t('board.newSampleDialog.errors.invalidStorageFormat'));
         return;
       }
     }
@@ -100,34 +100,33 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create new sample</DialogTitle>
-          <DialogDescription>Minimal fields for a sample card. Saved locally only.</DialogDescription>
+          <DialogTitle>{t("board.newSampleDialog.title")}</DialogTitle>
+          <DialogDescription>{t("board.newSampleDialog.description")}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1">
-            <Label htmlFor="sampleId">Sample ID</Label>
-            <Input id="sampleId" value={form.sampleId} onChange={onChange('sampleId')} required className="field-muted" />
+            <Label htmlFor="sampleId">{t("board.newSampleDialog.sampleId")}</Label>
+            <Input id="sampleId" value={form.sampleId} onChange={onChange('sampleId')} className="field-muted" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="wellId">Well ID</Label>
+              <Label htmlFor="wellId">{t("board.newSampleDialog.wellId")}</Label>
               <Input
                 id="wellId"
                 value={form.wellId}
                 onChange={onChange('wellId')}
-                required
                 inputMode="numeric"
                 pattern="[0-9]*"
                 className="field-muted"
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="horizon">Horizon</Label>
-              <Input id="horizon" value={form.horizon} onChange={onChange('horizon')} required className="field-muted" />
+              <Label htmlFor="horizon">{t("board.newSampleDialog.horizon")}</Label>
+              <Input id="horizon" value={form.horizon} onChange={onChange('horizon')} className="field-muted" />
             </div>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="samplingDate">Sampling Date</Label>
+            <Label htmlFor="samplingDate">{t("board.newSampleDialog.samplingDate")}</Label>
             <Popover open={dateOpen} onOpenChange={setDateOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -136,7 +135,7 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
                   type="button"
                 >
                   <Calendar className="mr-2 h-4 w-4" />
-                  {form.samplingDate || 'Pick a date'}
+                  {form.samplingDate || t("board.newSampleDialog.pickDate")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="p-0" align="start">
@@ -156,7 +155,7 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
             </Popover>
           </div>
           <div className="space-y-1">
-            <Label>Storage Location</Label>
+            <Label>{t("board.newSampleDialog.storageLocation")}</Label>
             <div className="grid grid-cols-3 gap-2">
               <div className="space-y-1">
                 <Input
@@ -165,7 +164,7 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
                   placeholder="A1"
                   className="field-muted"
                 />
-                <p className="text-xs text-muted-foreground">Fridge</p>
+                <p className="text-xs text-muted-foreground">{t("board.card.fridge")}</p>
               </div>
               <div className="space-y-1">
                 <Input
@@ -174,7 +173,7 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
                   placeholder="B2"
                   className="field-muted"
                 />
-                <p className="text-xs text-muted-foreground">Bin</p>
+                <p className="text-xs text-muted-foreground">{t("board.card.bin")}</p>
               </div>
               <div className="space-y-1">
                 <Input
@@ -183,17 +182,17 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
                   placeholder="C3"
                   className="field-muted"
                 />
-                <p className="text-xs text-muted-foreground">Place</p>
+                <p className="text-xs text-muted-foreground">{t("board.card.place")}</p>
               </div>
             </div>
           </div>
           {isFutureSamplingDate && (
-            <p className="text-sm text-destructive">Sampling date cannot be in the future</p>
+            <p className="text-sm text-destructive">{t("board.newSampleDialog.errors.futureDate")}</p>
           )}
-          {error && error !== 'Sampling date cannot be in the future' && <p className="text-sm text-destructive">{error}</p>}
+          {error && error !== t("board.newSampleDialog.errors.futureDate") && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={isFutureSamplingDate}>Create</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t("board.cancel")}</Button>
+            <Button type="submit" disabled={isFutureSamplingDate}>{t("board.newSampleDialog.create")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

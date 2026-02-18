@@ -14,7 +14,7 @@ import { getMethodLabel } from "@/lib/method-labels";
 import { useI18n } from "@/i18n";
 import { KanbanCard, PlannedAnalysisCard, Role, Status } from "@/types/kanban";
 
-const DEFAULT_ANALYSIS_TYPES = ["SARA", "IR", "Mass Spectrometry", "Viscosity"];
+const DEFAULT_ANALYSIS_TYPES = ["SARA", "IR", "Mass Spectrometry", "Viscosity", "Electrophoresis"];
 const ADMIN_STORED_KEY = "labsync-admin-stored";
 const DELETED_KEY = "labsync-deleted";
 const LAB_OVERRIDES_KEY = "labsync-lab-overrides";
@@ -33,17 +33,6 @@ const addDays = (dateStr: string, days: number) => {
   const next = new Date(base);
   next.setDate(base.getDate() + days);
   return next.toISOString().slice(0, 10);
-};
-
-const sampleLabelForRole = (role: Role, status: Status, adminStored?: boolean, deleted?: boolean) => {
-  if (role === "admin") {
-    if (deleted) return "Deleted";
-    if (adminStored) return "Stored";
-    if (status === "review") return "Needs attention";
-    if (status === "done") return "Issues";
-    return "Issues";
-  }
-  return columnConfigByRole[role].find((col) => col.id === status)?.title ?? "—";
 };
 
 const mergeMethods = (
@@ -119,6 +108,36 @@ const Samples = () => {
     method: "",
     status: "any",
   });
+  const localizeBoardStatus = (status: string) => {
+    const map: Record<string, string> = {
+      planned: t("board.columns.planned"),
+      awaiting_arrival: t("board.columns.awaiting_arrival"),
+      stored: t("board.columns.stored"),
+      issues: t("board.columns.issues"),
+      in_progress: t("board.columns.in_progress"),
+      needs_attention: t("board.columns.needs_attention"),
+      completed: t("board.columns.completed"),
+      uploaded_batch: t("board.columns.uploaded_batch"),
+      conflicts: t("board.columns.conflicts"),
+      deleted: t("board.columns.deleted"),
+      new: t("board.columns.planned"),
+      progress: t("board.columns.in_progress"),
+      review: t("board.columns.needs_attention"),
+      done: t("board.columns.stored"),
+    };
+    return map[status] ?? status;
+  };
+  const sampleLabelForRole = (role: Role, status: Status, adminStored?: boolean, deleted?: boolean) => {
+    if (role === "admin") {
+      if (deleted) return t("board.columns.deleted");
+      if (adminStored) return t("board.columns.stored");
+      if (status === "review") return t("board.columns.needs_attention");
+      return t("board.columns.issues");
+    }
+    const col = columnConfigByRole[role].find((item) => item.id === status);
+    if (col) return localizeBoardStatus(col.id);
+    return localizeBoardStatus(status);
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -161,14 +180,14 @@ const Samples = () => {
         sampleMap.set(analysis.sampleId, {
           id: analysis.sampleId,
           status: "new",
-          statusLabel: "Planned",
+          statusLabel: t("board.columns.planned"),
           sampleId: analysis.sampleId,
           wellId: "—",
           horizon: "—",
           samplingDate: "—",
-          storageLocation: "Unassigned",
-          analysisType: "Sample",
-          assignedTo: "Unassigned",
+          storageLocation: t("samplesPage.values.unassigned"),
+          analysisType: t("board.card.sample"),
+          assignedTo: t("samplesPage.values.unassigned"),
           analysisStatus: "planned",
           sampleStatus: "new",
         });
@@ -220,7 +239,7 @@ const Samples = () => {
 
       const labOverride = labOverrides[card.sampleId];
       const labStatus = labOverride ?? aggregateStatus(methods, "new");
-      const analysisBadge = columnConfigByRole.lab_operator.find((col) => col.id === labStatus)?.title ?? "Planned";
+      const analysisBadge = columnConfigByRole.lab_operator.find((col) => col.id === labStatus)?.title ?? t("board.columns.planned");
       const hasSampleCard = sampleIdsFromCards.has(card.sampleId);
       const warehouseVisible = hasSampleCard && !deleted[card.sampleId] && !adminStored[card.sampleId];
       const labVisible = warehouseVisible && (card.status === "review" || labOverride !== undefined);
@@ -252,7 +271,7 @@ const Samples = () => {
         adminStatus,
       };
     });
-  }, [cards, analyses]);
+  }, [cards, analyses, filterMethodWhitelist, t]);
 
   const methodOptions = useMemo(() => {
     const allowList = new Set<string>([
@@ -359,38 +378,38 @@ const Samples = () => {
           <div className="px-6 py-4 border-b border-border space-y-3">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-foreground">Sample registry</h2>
-                <p className="text-sm text-muted-foreground">All unique samples and analysis statuses.</p>
+                <h2 className="text-xl font-semibold text-foreground">{t("samplesPage.title")}</h2>
+                <p className="text-sm text-muted-foreground">{t("samplesPage.subtitle")}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 justify-end">
                 <Input
                   value={sampleIdFilter}
                   onChange={(event) => setSampleIdFilter(event.target.value)}
-                  placeholder="Filter Sample ID"
+                  placeholder={t("samplesPage.filters.sampleId")}
                   className="h-8 w-40"
                 />
                 <Input
                   value={wellIdFilter}
                   onChange={(event) => setWellIdFilter(event.target.value)}
-                  placeholder="Filter Well ID"
+                  placeholder={t("samplesPage.filters.wellId")}
                   className="h-8 w-40"
                 />
                 <Input
                   value={samplingDateFilter}
                   onChange={(event) => setSamplingDateFilter(event.target.value)}
-                  placeholder="Filter sampling date"
+                  placeholder={t("samplesPage.filters.samplingDate")}
                   className="h-8 w-44"
                 />
                 <Input
                   value={arrivalDateFilter}
                   onChange={(event) => setArrivalDateFilter(event.target.value)}
-                  placeholder="Filter arrival date"
+                  placeholder={t("samplesPage.filters.arrivalDate")}
                   className="h-8 w-44"
                 />
                 <Input
                   value={operatorFilter}
                   onChange={(event) => setOperatorFilter(event.target.value)}
-                  placeholder="Filter operator"
+                  placeholder={t("samplesPage.filters.operator")}
                   className="h-8 w-40"
                 />
                 <Popover
@@ -398,27 +417,27 @@ const Samples = () => {
                   onOpenChange={(open) => {
                     setMethodFilterOpen(open);
                     if (open) {
-                      setMethodFilterDraft(methodFilters);
+                      setMethodFilterDraft(methodFilterValue);
                     }
                   }}
                 >
                   <PopoverTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-2">
                       <Filter className="w-4 h-4" />
-                      Methods {hasActiveMethodFilter ? "(1)" : ""}
+                      {t("samplesPage.methods.button")} {hasActiveMethodFilter ? "(1)" : ""}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="p-3 w-80" align="end">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-foreground">Methods filter</p>
+                        <p className="text-sm font-semibold text-foreground">{t("samplesPage.methods.title")}</p>
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
                           onClick={() => setMethodFilterDraft({ method: "", status: "any" })}
                         >
-                          Reset
+                          {t("samplesPage.common.reset")}
                         </Button>
                       </div>
                       <div className="space-y-2">
@@ -429,7 +448,7 @@ const Samples = () => {
                           }}
                         >
                           <SelectTrigger className="h-9">
-                            <SelectValue placeholder="Choose method" />
+                            <SelectValue placeholder={t("samplesPage.methods.chooseMethod")} />
                           </SelectTrigger>
                           <SelectContent>
                             {methodOptions.map((method) => (
@@ -449,9 +468,9 @@ const Samples = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="any">Any</SelectItem>
-                            <SelectItem value="done">Done</SelectItem>
-                            <SelectItem value="not_done">Not done</SelectItem>
+                            <SelectItem value="any">{t("samplesPage.methods.any")}</SelectItem>
+                            <SelectItem value="done">{t("samplesPage.methods.done")}</SelectItem>
+                            <SelectItem value="not_done">{t("samplesPage.methods.notDone")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -465,7 +484,7 @@ const Samples = () => {
                             setMethodFilterOpen(false);
                           }}
                         >
-                          Cancel
+                          {t("samplesPage.common.cancel")}
                         </Button>
                         <Button
                           type="button"
@@ -479,7 +498,7 @@ const Samples = () => {
                             methodFilterDraft.status === methodFilterValue.status
                           }
                         >
-                          Apply
+                          {t("samplesPage.common.apply")}
                         </Button>
                       </div>
                     </div>
@@ -503,19 +522,19 @@ const Samples = () => {
                       ) : (
                         <ArrowUp className="w-4 h-4" />
                       )}
-                      Sort {sortMode !== "none" ? "(1)" : ""}
+                      {t("samplesPage.sort.button")} {sortMode !== "none" ? "(1)" : ""}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="p-3 w-80" align="end">
                     <div className="space-y-3 text-sm">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-foreground">Sort order</p>
+                        <p className="text-sm font-semibold text-foreground">{t("samplesPage.sort.order")}</p>
                         <Button type="button" variant="ghost" size="sm" onClick={() => setSortDraft("none")}>
-                          Reset
+                          {t("samplesPage.common.reset")}
                         </Button>
                       </div>
                       <div className="space-y-2">
-                        <p className="text-xs text-muted-foreground">Sort by</p>
+                        <p className="text-xs text-muted-foreground">{t("samplesPage.sort.by")}</p>
                         <div className="flex items-center gap-2">
                           <Select
                             value={sortMeta.isNone ? "" : sortMeta.field}
@@ -526,13 +545,13 @@ const Samples = () => {
                             }}
                           >
                             <SelectTrigger className="h-9 flex-1">
-                              <SelectValue placeholder="Choose field" />
+                              <SelectValue placeholder={t("samplesPage.sort.chooseField")} />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="sample">Sample ID</SelectItem>
-                              <SelectItem value="well">Well ID</SelectItem>
-                              <SelectItem value="sampling">Sampling date</SelectItem>
-                              <SelectItem value="arrival">Arrival date</SelectItem>
+                              <SelectItem value="sample">{t("samplesPage.columns.sampleId")}</SelectItem>
+                              <SelectItem value="well">{t("samplesPage.columns.wellId")}</SelectItem>
+                              <SelectItem value="sampling">{t("samplesPage.columns.samplingDate")}</SelectItem>
+                              <SelectItem value="arrival">{t("samplesPage.columns.arrivalDate")}</SelectItem>
                             </SelectContent>
                           </Select>
                           <div className="flex items-center gap-1 rounded-md border border-border p-1">
@@ -545,7 +564,7 @@ const Samples = () => {
                                 const field = sortMeta.field;
                                 setSortDraft(`${field}:asc` as typeof sortDraft);
                               }}
-                              aria-label="Ascending"
+                              aria-label={t("samplesPage.sort.ascending")}
                             >
                               <ArrowUp className="h-4 w-4" />
                             </Button>
@@ -558,7 +577,7 @@ const Samples = () => {
                                 const field = sortMeta.field;
                                 setSortDraft(`${field}:desc` as typeof sortDraft);
                               }}
-                              aria-label="Descending"
+                              aria-label={t("samplesPage.sort.descending")}
                             >
                               <ArrowDown className="h-4 w-4" />
                             </Button>
@@ -567,7 +586,7 @@ const Samples = () => {
                       </div>
                       <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
                         <Button type="button" variant="ghost" size="sm" onClick={() => setSortOpen(false)}>
-                          Cancel
+                          {t("samplesPage.common.cancel")}
                         </Button>
                         <Button
                           type="button"
@@ -577,7 +596,7 @@ const Samples = () => {
                             setSortOpen(false);
                           }}
                         >
-                          Apply
+                          {t("samplesPage.common.apply")}
                         </Button>
                       </div>
                     </div>
@@ -591,35 +610,35 @@ const Samples = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12 text-right">#</TableHead>
-                  <TableHead>Sample ID</TableHead>
-                  <TableHead>Well ID</TableHead>
-                  <TableHead>NGDU</TableHead>
-                  <TableHead>Well number</TableHead>
-                  <TableHead>Shop</TableHead>
-                  <TableHead>Field</TableHead>
-                  <TableHead>Injection well</TableHead>
-                  <TableHead>Horizon</TableHead>
-                  <TableHead>Sampling date</TableHead>
-                  <TableHead>Arrival date</TableHead>
-                  <TableHead>Storage location</TableHead>
-                  <TableHead>Warehouse status</TableHead>
-                  <TableHead>Lab status</TableHead>
-                  <TableHead>Admin status</TableHead>
-                  <TableHead>Analyses</TableHead>
+                  <TableHead>{t("samplesPage.columns.sampleId")}</TableHead>
+                  <TableHead>{t("samplesPage.columns.wellId")}</TableHead>
+                  <TableHead>{t("samplesPage.columns.ngdu")}</TableHead>
+                  <TableHead>{t("samplesPage.columns.wellNumber")}</TableHead>
+                  <TableHead>{t("samplesPage.columns.shop")}</TableHead>
+                  <TableHead>{t("samplesPage.columns.field")}</TableHead>
+                  <TableHead>{t("samplesPage.columns.injectionWell")}</TableHead>
+                  <TableHead>{t("samplesPage.columns.horizon")}</TableHead>
+                  <TableHead>{t("samplesPage.columns.samplingDate")}</TableHead>
+                  <TableHead>{t("samplesPage.columns.arrivalDate")}</TableHead>
+                  <TableHead>{t("samplesPage.columns.storageLocation")}</TableHead>
+                  <TableHead>{t("samplesPage.columns.warehouseStatus")}</TableHead>
+                  <TableHead>{t("samplesPage.columns.labStatus")}</TableHead>
+                  <TableHead>{t("samplesPage.columns.adminStatus")}</TableHead>
+                  <TableHead>{t("samplesPage.columns.analyses")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading && (
                   <TableRow>
                     <TableCell colSpan={15} className="text-muted-foreground">
-                      Loading samples…
+                      {t("samplesPage.loading")}
                     </TableCell>
                   </TableRow>
                 )}
                 {!loading && rows.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={15} className="text-muted-foreground">
-                      No samples yet.
+                      {t("samplesPage.empty")}
                     </TableCell>
                   </TableRow>
                 )}
@@ -633,7 +652,7 @@ const Samples = () => {
                       <TableCell>{row.wellNumber}</TableCell>
                       <TableCell>{row.shop}</TableCell>
                       <TableCell>{row.field}</TableCell>
-                      <TableCell>{row.injectionWell ? "Yes" : "No"}</TableCell>
+                      <TableCell>{row.injectionWell ? t("samplesPage.values.yes") : t("samplesPage.values.no")}</TableCell>
                       <TableCell>{row.card.horizon}</TableCell>
                       <TableCell>{row.card.samplingDate}</TableCell>
                       <TableCell>{row.arrivalDate}</TableCell>
@@ -641,21 +660,21 @@ const Samples = () => {
                       <TableCell>
                         {row.warehouseVisible
                           ? sampleLabelForRole("warehouse_worker", row.card.status)
-                          : "N/A"}
+                          : t("samplesPage.values.na")}
                       </TableCell>
                       <TableCell>
-                        {row.labVisible ? sampleLabelForRole("lab_operator", row.labStatus) : "N/A"}
+                        {row.labVisible ? sampleLabelForRole("lab_operator", row.labStatus) : t("samplesPage.values.na")}
                       </TableCell>
                       <TableCell>
                         {row.adminVisible
                           ? sampleLabelForRole("admin", row.adminStatus, row.adminStored, row.deleted)
-                          : "N/A"}
+                          : t("samplesPage.values.na")}
                       </TableCell>
                       <TableCell className="min-w-[520px]">
                         <div className="grid grid-cols-[minmax(140px,1.2fr)_60px_minmax(140px,1fr)] gap-2 text-[11px] text-muted-foreground pb-2 border-b border-border">
-                          <span>Method</span>
-                          <span>Done</span>
-                          <span>Operators</span>
+                          <span>{t("samplesPage.columns.method")}</span>
+                          <span>{t("samplesPage.columns.done")}</span>
+                          <span>{t("samplesPage.columns.operators")}</span>
                         </div>
                         <div className="space-y-2 pt-2">
                           {row.methods.map((method) => (
@@ -664,9 +683,9 @@ const Samples = () => {
                               className="grid grid-cols-[minmax(140px,1.2fr)_60px_minmax(140px,1fr)] gap-2 text-xs"
                             >
                               <span className="font-medium text-foreground">{getMethodLabel(method.name, t)}</span>
-                              <span>{method.done ? "Yes" : "No"}</span>
+                              <span>{method.done ? t("samplesPage.values.yes") : t("samplesPage.values.no")}</span>
                               <span className="text-muted-foreground">
-                                {method.assignees.length > 0 ? method.assignees.join(", ") : "Unassigned"}
+                                {method.assignees.length > 0 ? method.assignees.join(", ") : t("samplesPage.values.unassigned")}
                               </span>
                             </div>
                           ))}

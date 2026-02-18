@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover - fallback for script execution
 app = FastAPI(title="LabSync backend", version="0.1.0")
 
 DEFAULT_PASSWORD = "Tatneft123"
-DEFAULT_METHOD_PERMISSIONS = ["SARA", "IR", "Mass Spectrometry", "Viscosity"]
+DEFAULT_METHOD_PERMISSIONS = ["SARA", "IR", "Mass Spectrometry", "Viscosity", "Electrophoresis"]
 APP_ENV = (os.getenv("APP_ENV") or "development").strip().lower()
 IS_PRODUCTION = APP_ENV in {"prod", "production"}
 BOOTSTRAP_ADMIN_PASSWORD = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "admin")
@@ -540,13 +540,13 @@ async def list_planned_analyses(status: str | None = None, db: Session = Depends
 
 @app.post("/planned-analyses", response_model=PlannedAnalysisOut, status_code=201)
 async def create_planned_analysis(payload: PlannedAnalysisCreate, request: Request, db: Session = Depends(get_db)):
-  default_allowed = {"SARA", "IR", "Mass Spectrometry", "Viscosity"}
+  default_allowed = {"SARA", "IR", "Mass Spectrometry", "Viscosity", "Electrophoresis"}
   is_admin = is_admin_from_headers(request)
   name = payload.analysis_type.strip()
   if not name:
     raise HTTPException(status_code=400, detail="Analysis type required")
   if not is_admin and name not in default_allowed:
-    raise HTTPException(status_code=403, detail="Only these analysis types are allowed: SARA, IR, Mass Spectrometry, Viscosity")
+    raise HTTPException(status_code=403, detail="Only these analysis types are allowed: SARA, IR, Mass Spectrometry, Viscosity, Electrophoresis")
   assignees = normalize_assignees(payload.assigned_to)
   method_key = normalize_method_key(name)
   for assignee in assignees:

@@ -40,7 +40,7 @@ interface DetailPanelProps {
   currentUserName?: string;
 }
 
-export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_operator', onPlanAnalysis, onAssignOperator, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'], operatorOptions = [], comments = [], issueHistoryTimestamps = [], returnNoteTimestamps = [], onAddComment, currentUserName }: DetailPanelProps) {
+export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_operator', onPlanAnalysis, onAssignOperator, onResolveConflict, onUpdateSample, onUpdateAnalysis, onToggleMethod, readOnlyMethods, adminActions, availableMethods = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity', 'Electrophoresis'], operatorOptions = [], comments = [], issueHistoryTimestamps = [], returnNoteTimestamps = [], onAddComment, currentUserName }: DetailPanelProps) {
   const { t } = useI18n();
   const card: KanbanCard = cardProp ?? {
     id: '',
@@ -81,7 +81,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
   const canToggleForMethod = (assignedTo?: string[] | string | null) =>
     canToggleMethod(assignedTo) || canToggleMethod(card.assignedTo);
   const isInteractive = Boolean(onToggleMethod) && !readOnlyMethods;
-  const METHOD_ORDER = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
+  const METHOD_ORDER = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity', 'Electrophoresis'];
   const methodRank = (name: string) => {
     const idx = METHOD_ORDER.findIndex((m) => m.toLowerCase() === name.toLowerCase());
     return idx >= 0 ? idx : METHOD_ORDER.length + 100 + name.toLowerCase().charCodeAt(0);

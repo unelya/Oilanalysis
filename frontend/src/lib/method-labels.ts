@@ -7,6 +7,7 @@ export function getMethodLabel(name: string, t: TFn): string {
     ir: "methods.ir",
     "mass spectrometry": "methods.mass_spectrometry",
     viscosity: "methods.viscosity",
+    electrophoresis: "methods.electrophoresis",
     nmr: "methods.nmr",
   };
   const key = keyByName[normalized];
