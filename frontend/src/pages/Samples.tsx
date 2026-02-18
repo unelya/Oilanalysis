@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { columnConfigByRole } from "@/data/mockData";
 import { fetchFilterMethods, fetchPlannedAnalyses, fetchSamples, mapApiAnalysis } from "@/lib/api";
+import { getMethodLabel } from "@/lib/method-labels";
+import { useI18n } from "@/i18n";
 import { KanbanCard, PlannedAnalysisCard, Role, Status } from "@/types/kanban";
 
 const DEFAULT_ANALYSIS_TYPES = ["SARA", "IR", "Mass Spectrometry", "Viscosity"];
@@ -85,6 +87,7 @@ const aggregateStatus = (methods: { status: PlannedAnalysisCard["status"] }[], f
 };
 
 const Samples = () => {
+  const { t } = useI18n();
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [analyses, setAnalyses] = useState<PlannedAnalysisCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -431,7 +434,7 @@ const Samples = () => {
                           <SelectContent>
                             {methodOptions.map((method) => (
                               <SelectItem key={method} value={method}>
-                                {method}
+                                {getMethodLabel(method, t)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -660,7 +663,7 @@ const Samples = () => {
                               key={method.name}
                               className="grid grid-cols-[minmax(140px,1.2fr)_60px_minmax(140px,1fr)] gap-2 text-xs"
                             >
-                              <span className="font-medium text-foreground">{method.name}</span>
+                              <span className="font-medium text-foreground">{getMethodLabel(method.name, t)}</span>
                               <span>{method.done ? "Yes" : "No"}</span>
                               <span className="text-muted-foreground">
                                 {method.assignees.length > 0 ? method.assignees.join(", ") : "Unassigned"}

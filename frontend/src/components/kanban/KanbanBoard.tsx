@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/i18n';
+import { getMethodLabel } from '@/lib/method-labels';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
 const DEFAULT_ANALYSIS_TYPES = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity'];
@@ -2906,7 +2907,7 @@ export function KanbanBoard({
       if (!isAdminUser && !known.includes(name.toLowerCase())) {
         toast({
           title: "Invalid analysis type",
-          description: "Only SARA, IR, Mass Spectrometry, or Viscosity are allowed.",
+          description: "Only SARA, IR, Mass Spectrometry, or Reology are allowed.",
           variant: "destructive",
         });
         return;
@@ -3464,7 +3465,7 @@ export function KanbanBoard({
                             checked={methodFilter.includes(m)}
                             className="mr-2 pointer-events-none"
                           />
-                          <span>{m}</span>
+                          <span>{getMethodLabel(m, t)}</span>
                         </CommandItem>
                       ))}
                   </CommandGroup>
@@ -3486,7 +3487,7 @@ export function KanbanBoard({
                     {DEFAULT_ANALYSIS_TYPES.map((m) => (
                       <CommandItem key={m} onSelect={() => {}}>
                         <Checkbox checked className="mr-2 pointer-events-none" />
-                        <span className="text-muted-foreground">{m}</span>
+                        <span className="text-muted-foreground">{getMethodLabel(m, t)}</span>
                       </CommandItem>
                     ))}
                     {[...new Set([...plannedAnalyses.map((pa) => pa.analysisType), ...filterMethodWhitelist])]
@@ -3519,7 +3520,7 @@ export function KanbanBoard({
                             checked={filterMethodWhitelist.includes(m)}
                             className="mr-2 pointer-events-none"
                           />
-                          <span>{m}</span>
+                          <span>{getMethodLabel(m, t)}</span>
                         </CommandItem>
                       ))}
                   </CommandGroup>

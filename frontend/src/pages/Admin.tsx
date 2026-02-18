@@ -24,25 +24,25 @@ import {
 import { Check, ChevronDown, ChevronsUpDown, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/i18n";
+import { getMethodLabel } from "@/lib/method-labels";
 
-const roles = [
-  { id: "warehouse_worker", label: "Warehouse" },
-  { id: "lab_operator", label: "Lab Operator" },
-  { id: "action_supervision", label: "Action Supervision" },
-  { id: "admin", label: "Admin" },
-];
+const roleIds = ["warehouse_worker", "lab_operator", "action_supervision", "admin"] as const;
 const methodOptions = ["SARA", "IR", "Mass Spectrometry", "Viscosity"];
 const userGridCols = "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.35fr)_120px]";
 const eventEntityTypes = ["sample", "planned_analysis", "conflict", "user"];
 const eventActions = [
   "created",
   "updated",
+  "delete",
   "deleted",
   "status_change",
   "operator_assigned",
   "operator_unassigned",
   "role_changed",
   "method_permissions_changed",
+  "password_reset_requested",
+  "password_reset_completed",
+  "password_changed",
 ];
 const defaultUserPassword = "Tatneft123";
 
@@ -82,6 +82,123 @@ const Admin = () => {
   const [eventLogOpen, setEventLogOpen] = useState(false);
   const { toast } = useToast();
   const { t } = useI18n();
+  const roles = roleIds.map((id) => ({
+    id,
+    label:
+      id === "warehouse_worker"
+        ? t("common.warehouse")
+        : id === "lab_operator"
+        ? t("common.labOperator")
+        : id === "action_supervision"
+        ? t("common.actionSupervision")
+        : t("common.admin"),
+  }));
+  const eventEntityLabels: Record<string, string> = {
+    sample: t("admin.page.event.entities.sample"),
+    planned_analysis: t("admin.page.event.entities.planned_analysis"),
+    conflict: t("admin.page.event.entities.conflict"),
+    user: t("admin.page.event.entities.user"),
+  };
+  const eventActionLabels: Record<string, string> = {
+    created: t("admin.page.event.actions.created"),
+    updated: t("admin.page.event.actions.updated"),
+    delete: t("admin.page.event.actions.delete"),
+    deleted: t("admin.page.event.actions.deleted"),
+    status_change: t("admin.page.event.actions.status_change"),
+    operator_assigned: t("admin.page.event.actions.operator_assigned"),
+    operator_unassigned: t("admin.page.event.actions.operator_unassigned"),
+    role_changed: t("admin.page.event.actions.role_changed"),
+    method_permissions_changed: t("admin.page.event.actions.method_permissions_changed"),
+    password_reset_requested: t("admin.page.event.actions.password_reset_requested"),
+    password_reset_completed: t("admin.page.event.actions.password_reset_completed"),
+    password_changed: t("admin.page.event.actions.password_changed"),
+  };
+  const eventDetailKeyLabels: Record<string, string> = {
+    username: t("admin.page.event.details.keys.username"),
+    email: t("admin.page.event.details.keys.email"),
+    roles: t("admin.page.event.details.keys.roles"),
+    methods: t("admin.page.event.details.keys.methods"),
+    status: t("admin.page.event.details.keys.status"),
+    well_id: t("admin.page.event.details.keys.well_id"),
+    horizon: t("admin.page.event.details.keys.horizon"),
+    sampling_date: t("admin.page.event.details.keys.sampling_date"),
+    storage_location: t("admin.page.event.details.keys.storage_location"),
+    assigned_to: t("admin.page.event.details.keys.assigned_to"),
+    sample: t("admin.page.event.details.keys.sample"),
+    method: t("admin.page.event.details.keys.method"),
+    assignees: t("admin.page.event.details.keys.assignees"),
+    target: t("admin.page.event.details.keys.target"),
+    resolution_note: t("admin.page.event.details.keys.resolution_note"),
+  };
+  const localizeStatusValue = (value: string) => {
+    const normalized = (value || "").trim().toLowerCase();
+    const map: Record<string, string> = {
+      planned: t("board.columns.planned"),
+      in_progress: t("board.columns.in_progress"),
+      review: t("board.columns.needs_attention"),
+      completed: t("board.columns.completed"),
+      failed: t("board.card.failed"),
+      new: t("board.columns.planned"),
+      progress: t("board.columns.in_progress"),
+      done: t("board.columns.stored"),
+      resolved: t("board.card.resolved"),
+    };
+    return map[normalized] ?? value;
+  };
+  const localizeRoleValue = (value: string) => {
+    const normalized = (value || "").trim().toLowerCase();
+    const map: Record<string, string> = {
+      warehouse_worker: t("common.warehouse"),
+      lab_operator: t("common.labOperator"),
+      action_supervision: t("common.actionSupervision"),
+      admin: t("common.admin"),
+    };
+    return map[normalized] ?? value;
+  };
+  const formatEventDetails = (event: AdminEvent) => {
+    const raw = (event.details || "").trim();
+    if (!raw) return "-";
+    if (raw === "self_service") return t("admin.page.event.details.self_service");
+    if (raw === "email_flow") return t("admin.page.event.details.email_flow");
+    const segments = raw.split(";").map((s) => s.trim()).filter(Boolean);
+    if (segments.length === 0) return raw;
+    const formatValue = (key: string, value: string) => {
+      const clean = value.trim();
+      if (!clean) return "—";
+      if (key === "status") return localizeStatusValue(clean);
+      if (key === "roles") {
+        return clean
+          .split(",")
+          .map((item) => localizeRoleValue(item.trim()))
+          .join(", ");
+      }
+      return clean;
+    };
+    const formatted = segments.map((segment) => {
+      const arrowIdx = segment.indexOf("->");
+      if (arrowIdx > -1) {
+        const left = segment.slice(0, arrowIdx).trim();
+        const right = segment.slice(arrowIdx + 2).trim();
+        const colonIdx = left.indexOf(":");
+        if (colonIdx > -1) {
+          const key = left.slice(0, colonIdx).trim();
+          const oldValue = left.slice(colonIdx + 1).trim();
+          const label = eventDetailKeyLabels[key] ?? key;
+          return `${label}: ${formatValue(key, oldValue)} -> ${formatValue(key, right)}`;
+        }
+        return `${localizeStatusValue(left)} -> ${localizeStatusValue(right)}`;
+      }
+      const eqIdx = segment.indexOf("=");
+      if (eqIdx > -1) {
+        const key = segment.slice(0, eqIdx).trim();
+        const value = segment.slice(eqIdx + 1).trim();
+        const label = eventDetailKeyLabels[key] ?? key;
+        return `${label}: ${formatValue(key, value)}`;
+      }
+      return segment;
+    });
+    return formatted.join("; ");
+  };
 
   const load = async () => {
     setLoading(true);
@@ -454,27 +571,27 @@ const Admin = () => {
         <Sidebar />
         <div className="flex-1 p-6">
           <div className="space-y-2 mb-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Admin</p>
-            <h2 className="text-2xl font-semibold text-foreground">Users & roles</h2>
-            <p className="text-sm text-muted-foreground">Create users, edit roles, or delete accounts.</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("common.admin")}</p>
+            <h2 className="text-2xl font-semibold text-foreground">{t("admin.page.usersRolesTitle")}</h2>
+            <p className="text-sm text-muted-foreground">{t("admin.page.usersRolesSubtitle")}</p>
           </div>
           <Separator />
           <div className="mt-4 rounded-2xl border border-border/60 bg-card/70 p-4">
             <div className={`grid ${userGridCols} gap-3`}>
               <div>
-                <label className="text-xs uppercase tracking-wide text-muted-foreground">Username</label>
-                <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value)} placeholder="e.g. lab.tech" />
+                <label className="text-xs uppercase tracking-wide text-muted-foreground">{t("login.username")}</label>
+                <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value)} placeholder={t("admin.page.placeholders.username")} />
               </div>
               <div>
-                <label className="text-xs uppercase tracking-wide text-muted-foreground">Full name</label>
-                <Input value={newFullName} onChange={(e) => setNewFullName(e.target.value)} placeholder="e.g. Ivan Petrov" />
+                <label className="text-xs uppercase tracking-wide text-muted-foreground">{t("admin.page.fullName")}</label>
+                <Input value={newFullName} onChange={(e) => setNewFullName(e.target.value)} placeholder={t("admin.page.placeholders.fullName")} />
               </div>
               <div>
-                <label className="text-xs uppercase tracking-wide text-muted-foreground">Email</label>
-                <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="e.g. user@company.com" />
+                <label className="text-xs uppercase tracking-wide text-muted-foreground">{t("login.email")}</label>
+                <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder={t("admin.page.placeholders.email")} />
               </div>
               <div>
-                <label className="text-xs uppercase tracking-wide text-muted-foreground">Default role</label>
+                <label className="text-xs uppercase tracking-wide text-muted-foreground">{t("admin.page.defaultRole")}</label>
                 <select
                   className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                   value={newRole}
@@ -489,21 +606,21 @@ const Admin = () => {
               </div>
               <div className="flex items-end justify-end">
                 <Button onClick={handleCreate} disabled={creating || !newUsername.trim() || !newFullName.trim() || !newEmail.trim() || !newRole.trim()}>
-                  {creating ? "Creating..." : "Create user"}
+                  {creating ? t("admin.page.creating") : t("admin.page.createUser")}
                 </Button>
               </div>
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              Default password for new users: <span className="font-mono text-foreground">{defaultUserPassword}</span>.
+              {t("admin.page.defaultPasswordForNewUsers")} <span className="font-mono text-foreground">{defaultUserPassword}</span>.
             </p>
           </div>
           <div className="mt-4 rounded-2xl border border-border/60 bg-card/70">
             <div className={`grid ${userGridCols} gap-3 text-xs uppercase tracking-wide text-muted-foreground px-4 py-2 border-b border-border/60`}>
-              <div>Username</div>
-              <div>Full name</div>
-              <div>Email</div>
-              <div>Roles</div>
-              <div className="text-right">Actions</div>
+              <div>{t("login.username")}</div>
+              <div>{t("admin.page.fullName")}</div>
+              <div>{t("login.email")}</div>
+              <div>{t("admin.page.roles")}</div>
+              <div className="text-right">{t("admin.page.actions")}</div>
             </div>
             <div className="divide-y divide-border/60">
               {users.map((user) => (
@@ -516,7 +633,7 @@ const Admin = () => {
                       className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
                       onClick={() => openUsernameEditor(user)}
                       disabled={savingId === user.id}
-                      aria-label={`Change username for ${user.username}`}
+                      aria-label={t("admin.page.aria.changeUsername", { username: user.username })}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -529,7 +646,7 @@ const Admin = () => {
                       className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
                       onClick={() => openFullNameEditor(user)}
                       disabled={savingId === user.id}
-                      aria-label={`Change full name for ${user.username}`}
+                      aria-label={t("admin.page.aria.changeFullName", { username: user.username })}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -542,7 +659,7 @@ const Admin = () => {
                       className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
                       onClick={() => openEmailEditor(user)}
                       disabled={savingId === user.id}
-                      aria-label={`Change email for ${user.username}`}
+                      aria-label={t("admin.page.aria.changeEmail", { username: user.username })}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -558,18 +675,18 @@ const Admin = () => {
                             </Badge>
                           );
                         })}
-                        {user.roles.length === 0 && <span className="text-xs text-muted-foreground">No roles yet</span>}
+                        {user.roles.length === 0 && <span className="text-xs text-muted-foreground">{t("admin.page.noRolesYet")}</span>}
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button variant="outline" size="sm" className="w-full justify-between">
-                            <span>Select roles</span>
+                            <span>{t("admin.page.selectRoles")}</span>
                             <ChevronsUpDown className="h-4 w-4 opacity-60" />
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-64 p-0" align="start">
                           <Command>
-                            <CommandEmpty>No roles found.</CommandEmpty>
+                            <CommandEmpty>{t("admin.page.noRolesFound")}</CommandEmpty>
                             <CommandGroup>
                               {roles.map((r) => {
                                 const selected = user.roles.includes(r.id);
@@ -599,23 +716,23 @@ const Admin = () => {
                           <div className="flex flex-wrap gap-1">
                             {(user.method_permissions || []).map((m) => (
                               <Badge key={m} variant="outline" className="text-xs">
-                                {m}
+                                {getMethodLabel(m, t)}
                               </Badge>
                             ))}
                             {(user.method_permissions || []).length === 0 && (
-                              <span className="text-xs text-muted-foreground">No method permissions</span>
+                              <span className="text-xs text-muted-foreground">{t("admin.page.noMethodPermissions")}</span>
                             )}
                           </div>
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button variant="outline" size="sm" className="w-full justify-between">
-                                <span>Method permissions</span>
+                                <span>{t("admin.page.methodPermissions")}</span>
                                 <ChevronsUpDown className="h-4 w-4 opacity-60" />
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-72 p-0" align="start">
                               <Command>
-                                <CommandEmpty>No methods found.</CommandEmpty>
+                                <CommandEmpty>{t("admin.page.noMethodsFound")}</CommandEmpty>
                                 <CommandGroup>
                                   {methodOptions.map((methodName) => {
                                     const selected = (user.method_permissions || []).includes(methodName);
@@ -633,6 +750,7 @@ const Admin = () => {
                                           {selected && <Check className="h-3 w-3" />}
                                         </div>
                                         <span>{methodName}</span>
+                                        <span>{getMethodLabel(methodName, t)}</span>
                                       </CommandItem>
                                     );
                                   })}
@@ -651,35 +769,35 @@ const Admin = () => {
                       onClick={() => handleDelete(user.id)}
                       disabled={savingId === user.id}
                     >
-                      Delete
+                      {t("board.card.delete")}
                     </Button>
                   </div>
                 </div>
               ))}
               {users.length === 0 && (
-                <div className="px-4 py-6 text-sm text-muted-foreground">{loading ? "Loading users..." : "No users found."}</div>
+                <div className="px-4 py-6 text-sm text-muted-foreground">{loading ? t("admin.page.loadingUsers") : t("admin.page.noUsersFound")}</div>
               )}
             </div>
           </div>
           <div className="space-y-2 mb-4 mt-8">
-            <h2 className="text-2xl font-semibold text-foreground">Event log</h2>
-            <p className="text-sm text-muted-foreground">Review workflow activity with filters, sorting, and search.</p>
+            <h2 className="text-2xl font-semibold text-foreground">{t("admin.page.eventLogTitle")}</h2>
+            <p className="text-sm text-muted-foreground">{t("admin.page.eventLogSubtitle")}</p>
             <div className="pt-1">
               <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto] gap-2">
                 <Input
                   value={eventQuery}
                   onChange={(e) => setEventQuery(e.target.value)}
-                  placeholder="Search details, actor, action..."
+                  placeholder={t("admin.page.searchEventsPlaceholder")}
                 />
                 <select
                   className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                   value={eventEntityType}
                   onChange={(e) => setEventEntityType(e.target.value)}
                 >
-                  <option value="">All entities</option>
+                  <option value="">{t("admin.page.allEntities")}</option>
                   {eventEntityTypes.map((entity) => (
                     <option key={entity} value={entity}>
-                      {entity}
+                      {eventEntityLabels[entity] ?? entity}
                     </option>
                   ))}
                 </select>
@@ -688,10 +806,10 @@ const Admin = () => {
                   value={eventAction}
                   onChange={(e) => setEventAction(e.target.value)}
                 >
-                  <option value="">All actions</option>
+                  <option value="">{t("admin.page.allActions")}</option>
                   {eventActions.map((actionName) => (
                     <option key={actionName} value={actionName}>
-                      {actionName}
+                      {eventActionLabels[actionName] ?? actionName}
                     </option>
                   ))}
                 </select>
@@ -700,11 +818,11 @@ const Admin = () => {
                   value={eventSort}
                   onChange={(e) => setEventSort(e.target.value as "desc" | "asc")}
                 >
-                  <option value="desc">Newest first</option>
-                  <option value="asc">Oldest first</option>
+                  <option value="desc">{t("admin.page.newestFirst")}</option>
+                  <option value="asc">{t("admin.page.oldestFirst")}</option>
                 </select>
                 <Button size="sm" className="h-10" onClick={() => loadEvents()} disabled={eventsLoading}>
-                  Apply filters
+                  {t("admin.page.applyFilters")}
                 </Button>
                 <Button
                   size="sm"
@@ -724,20 +842,20 @@ const Admin = () => {
                   }}
                   disabled={eventsLoading}
                 >
-                  Reset
+                  {t("board.reset")}
                 </Button>
               </div>
               <div className="mt-2 flex items-center justify-end gap-2">
                 <span className="text-xs text-muted-foreground">
-                  {eventsLoading ? "Loading..." : `Showing ${visibleEvents.length} of ${events.length}`}
+                  {eventsLoading ? t("admin.page.loading") : t("admin.page.showingCount", { shown: visibleEvents.length, total: events.length })}
                 </span>
                 <Button
                   size="sm"
                   variant="outline"
                   className="h-8 w-8 p-0"
                   onClick={() => setEventLogOpen((prev) => !prev)}
-                  aria-label={eventLogOpen ? "Collapse event log to top 10 entries" : "Expand event log to full list"}
-                  title={eventLogOpen ? "Show top 10" : "Show full list"}
+                  aria-label={eventLogOpen ? t("admin.page.collapseEventLog") : t("admin.page.expandEventLog")}
+                  title={eventLogOpen ? t("admin.page.showTop10") : t("admin.page.showFullList")}
                 >
                   <ChevronDown className={`h-4 w-4 transition-transform ${eventLogOpen ? "rotate-180" : ""}`} />
                 </Button>
@@ -746,32 +864,32 @@ const Admin = () => {
           </div>
           <Separator />
           <div className="mt-4 rounded-2xl border border-border/60 bg-card/70">
-            <div className="grid grid-cols-[180px_140px_140px_120px_minmax(0,1fr)] gap-3 text-xs uppercase tracking-wide text-muted-foreground px-4 py-2 border-b border-border/60">
-              <div>Timestamp</div>
-              <div>Actor</div>
-              <div>Entity</div>
-              <div>Action</div>
-              <div>Details</div>
+            <div className="grid grid-cols-[180px_140px_140px_160px_minmax(0,1fr)] gap-3 text-xs uppercase tracking-wide text-muted-foreground px-4 py-2 border-b border-border/60">
+              <div>{t("admin.page.timestamp")}</div>
+              <div>{t("admin.page.actor")}</div>
+              <div>{t("admin.page.entity")}</div>
+              <div>{t("admin.page.action")}</div>
+              <div className="pl-3">{t("admin.page.details")}</div>
             </div>
             <div className={`${eventLogOpen ? "divide-y divide-border/60" : "max-h-96 overflow-auto divide-y divide-border/60"}`}>
               {visibleEvents.map((event) => (
-                <div key={event.id} className="grid grid-cols-[180px_140px_140px_120px_minmax(0,1fr)] gap-3 items-start px-4 py-2 text-sm text-foreground">
+                <div key={event.id} className="grid grid-cols-[180px_140px_140px_160px_minmax(0,1fr)] gap-3 items-start px-4 py-2 text-sm text-foreground">
                   <div className="text-xs text-muted-foreground">{new Date(event.performed_at).toLocaleString()}</div>
-                  <div className="truncate">{event.performed_by || "System"}</div>
+                  <div className="truncate">{event.performed_by || t("admin.page.system")}</div>
                   <div className="truncate">
                     {event.entity_type}:{event.entity_id}
                   </div>
                   <div>
                     <Badge variant="outline" className="text-xs">
-                      {event.action}
+                      {eventActionLabels[event.action] ?? event.action}
                     </Badge>
                   </div>
-                  <div className="whitespace-pre-wrap break-words text-muted-foreground">{event.details || "-"}</div>
+                  <div className="pl-3 whitespace-pre-wrap break-words text-muted-foreground">{formatEventDetails(event)}</div>
                 </div>
               ))}
               {visibleEvents.length === 0 && (
                 <div className="px-4 py-6 text-sm text-muted-foreground">
-                  {eventsLoading ? "Loading events..." : "No events found for current filters."}
+                  {eventsLoading ? t("admin.page.loadingEvents") : t("admin.page.noEventsForFilters")}
                 </div>
               )}
             </div>
@@ -782,26 +900,26 @@ const Admin = () => {
       <Dialog open={usernameEditorOpen} onOpenChange={setUsernameEditorOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Update username</DialogTitle>
+            <DialogTitle>{t("admin.page.dialogs.updateUsername.title")}</DialogTitle>
             <DialogDescription>
-              Change the username for <span className="font-medium text-foreground">{editingUser.username}</span>.
+              {t("admin.page.dialogs.updateUsername.description")} <span className="font-medium text-foreground">{editingUser.username}</span>.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="edit-user-username">Username</Label>
+            <Label htmlFor="edit-user-username">{t("login.username")}</Label>
             <Input
               id="edit-user-username"
               value={editingUsername}
               onChange={(e) => setEditingUsername(e.target.value)}
-              placeholder="e.g. lab.tech"
+              placeholder={t("admin.page.placeholders.username")}
             />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setUsernameEditorOpen(false)}>
-              Cancel
+              {t("board.cancel")}
             </Button>
             <Button onClick={requestUsernameUpdate} disabled={savingId === editingUser.id}>
-              Save username
+              {t("admin.page.dialogs.updateUsername.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -809,41 +927,41 @@ const Admin = () => {
       <AlertDialog open={usernameConfirmOpen} onOpenChange={setUsernameConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm username change</AlertDialogTitle>
+            <AlertDialogTitle>{t("admin.page.dialogs.confirmUsername.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Update username from <span className="font-medium text-foreground">{editingUser.currentUsername}</span> to{" "}
+              {t("admin.page.dialogs.confirmUsername.description")} <span className="font-medium text-foreground">{editingUser.currentUsername}</span> {t("admin.page.dialogs.to")}{" "}
               <span className="font-medium text-foreground">{editingUsername.trim()}</span>?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmUsernameUpdate}>Confirm</AlertDialogAction>
+            <AlertDialogCancel>{t("board.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmUsernameUpdate}>{t("admin.page.dialogs.confirm")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       <Dialog open={fullNameEditorOpen} onOpenChange={setFullNameEditorOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Update full name</DialogTitle>
+            <DialogTitle>{t("admin.page.dialogs.updateFullName.title")}</DialogTitle>
             <DialogDescription>
-              Change the full name for <span className="font-medium text-foreground">{editingUser.username}</span>.
+              {t("admin.page.dialogs.updateFullName.description")} <span className="font-medium text-foreground">{editingUser.username}</span>.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="edit-user-full-name">Full name</Label>
+            <Label htmlFor="edit-user-full-name">{t("admin.page.fullName")}</Label>
             <Input
               id="edit-user-full-name"
               value={editingFullName}
               onChange={(e) => setEditingFullName(e.target.value)}
-              placeholder="e.g. Ivan Petrov"
+              placeholder={t("admin.page.placeholders.fullName")}
             />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setFullNameEditorOpen(false)}>
-              Cancel
+              {t("board.cancel")}
             </Button>
             <Button onClick={requestFullNameUpdate} disabled={savingId === editingUser.id}>
-              Save full name
+              {t("admin.page.dialogs.updateFullName.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -851,42 +969,42 @@ const Admin = () => {
       <AlertDialog open={fullNameConfirmOpen} onOpenChange={setFullNameConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm full name change</AlertDialogTitle>
+            <AlertDialogTitle>{t("admin.page.dialogs.confirmFullName.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Update full name from <span className="font-medium text-foreground">{editingUser.currentFullName}</span> to{" "}
+              {t("admin.page.dialogs.confirmFullName.description")} <span className="font-medium text-foreground">{editingUser.currentFullName}</span> {t("admin.page.dialogs.to")}{" "}
               <span className="font-medium text-foreground">{editingFullName.trim()}</span>?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmFullNameUpdate}>Confirm</AlertDialogAction>
+            <AlertDialogCancel>{t("board.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmFullNameUpdate}>{t("admin.page.dialogs.confirm")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       <Dialog open={emailEditorOpen} onOpenChange={setEmailEditorOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Update user email</DialogTitle>
+            <DialogTitle>{t("admin.page.dialogs.updateEmail.title")}</DialogTitle>
             <DialogDescription>
-              Change the email for <span className="font-medium text-foreground">{editingUser.username}</span>.
+              {t("admin.page.dialogs.updateEmail.description")} <span className="font-medium text-foreground">{editingUser.username}</span>.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="edit-user-email">Email</Label>
+            <Label htmlFor="edit-user-email">{t("login.email")}</Label>
             <Input
               id="edit-user-email"
               type="email"
               value={editingEmail}
               onChange={(e) => setEditingEmail(e.target.value)}
-              placeholder="e.g. user@company.com"
+              placeholder={t("admin.page.placeholders.email")}
             />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEmailEditorOpen(false)}>
-              Cancel
+              {t("board.cancel")}
             </Button>
             <Button onClick={requestEmailUpdate} disabled={savingId === editingUser.id}>
-              Save email
+              {t("admin.page.dialogs.updateEmail.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -894,15 +1012,15 @@ const Admin = () => {
       <AlertDialog open={emailConfirmOpen} onOpenChange={setEmailConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm email change</AlertDialogTitle>
+            <AlertDialogTitle>{t("admin.page.dialogs.confirmEmail.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Update <span className="font-medium text-foreground">{editingUser.username}</span> email to{" "}
+              {t("admin.page.dialogs.confirmEmail.description")} <span className="font-medium text-foreground">{editingUser.username}</span> {t("admin.page.dialogs.to")}{" "}
               <span className="font-medium text-foreground">{editingEmail.trim().toLowerCase()}</span>?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmEmailUpdate}>Confirm</AlertDialogAction>
+            <AlertDialogCancel>{t("board.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmEmailUpdate}>{t("admin.page.dialogs.confirm")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

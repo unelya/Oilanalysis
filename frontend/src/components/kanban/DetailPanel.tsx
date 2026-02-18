@@ -13,6 +13,7 @@ import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/i18n';
+import { getMethodLabel } from '@/lib/method-labels';
 
 interface DetailPanelProps {
   card: KanbanCard | null;
@@ -539,7 +540,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                         disabled={!isInteractive}
                       />
                       <span className="flex-1">
-                        {m.name}
+                        {getMethodLabel(m.name, t)}
                         {normalizeAssignees(m.assignedTo).length > 0 ? (
                           <span className="text-xs text-muted-foreground inline-flex items-center gap-1 ml-1">
                             <Users className="w-3 h-3" />
@@ -618,7 +619,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                     <SelectContent>
                       {availableMethods.map((m) => (
                         <SelectItem key={m} value={m}>
-                          {m}
+                          {getMethodLabel(m, t)}
                         </SelectItem>
                       ))}
                     </SelectContent>
