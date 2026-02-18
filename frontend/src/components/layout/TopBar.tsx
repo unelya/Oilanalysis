@@ -1,5 +1,5 @@
 import { ChangeEvent, useMemo } from 'react';
-import { Bell, Search, LogOut, Moon, Sun } from 'lucide-react';
+import { Bell, Search, LogOut, Moon, Sun, Globe } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Role } from '@/types/kanban';
@@ -28,7 +28,7 @@ interface TopBarProps {
 export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles, showNotificationDot = false, notifications = [], onNotificationClick, onMarkAllRead }: TopBarProps) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { t } = useI18n();
+  const { t, language, setLanguage } = useI18n();
   const allRoleOptions: { id: Role; label: string }[] = [
     { id: 'warehouse_worker', label: t("common.warehouse") },
     { id: 'lab_operator', label: t("common.labOperator") },
@@ -90,6 +90,35 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
             )}
           </SelectContent>
         </Select>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-muted transition-colors border border-border/50 bg-muted"
+              aria-label={t("common.language")}
+              title={t("common.language")}
+            >
+              <Globe className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs font-medium text-foreground uppercase">{language}</span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-32 p-1">
+            <button
+              type="button"
+              className={`w-full text-left rounded px-2 py-1.5 text-sm transition-colors ${language === "en" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/70"}`}
+              onClick={() => setLanguage("en")}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              className={`w-full text-left rounded px-2 py-1.5 text-sm transition-colors ${language === "ru" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/70"}`}
+              onClick={() => setLanguage("ru")}
+            >
+              RU
+            </button>
+          </PopoverContent>
+        </Popover>
         <button
           type="button"
           className="p-2 rounded-md hover:bg-muted transition-colors"

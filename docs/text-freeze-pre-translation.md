@@ -1,5 +1,10 @@
 # Text Freeze Contract (Pre-Translation)
 
+## Localization Checkpoint
+- `Admin`: `done`
+- `Board`: `done`
+- `Auth`: `done`
+
 ## Purpose
 This document freezes high-impact user-visible wording before RU translation starts.
 Status values:
