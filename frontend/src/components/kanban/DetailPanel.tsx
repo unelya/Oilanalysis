@@ -372,24 +372,6 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                  <User className="w-3 h-3" /> {t("panel.assignedTo")}
-                </label>
-                <EditableField
-                  value={displayAssignedTo}
-                  placeholder={t("panel.addAssignee")}
-                  onSave={(val) => {
-                    if (card.analysisType === 'Sample' && onUpdateSample) {
-                      onUpdateSample({ assigned_to: val || UNASSIGNED_VALUE });
-                    }
-                    if (card.analysisType !== 'Sample' && onUpdateAnalysis) {
-                      onUpdateAnalysis({ assigned_to: val || UNASSIGNED_VALUE });
-                    }
-                  }}
-                  readOnly={!onUpdateSample && !onUpdateAnalysis}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                   <Calendar className="w-3 h-3" /> {t("panel.samplingDate")}
                 </label>
                 <DateEditable
@@ -407,6 +389,32 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                   onSave={(val) => onUpdateSample?.({ arrival_date: val })}
                   readOnly={!onUpdateSample}
                 />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  <CircleDot className="w-3 h-3" /> {t("board.card.well")}
+                </label>
+                <div className="flex gap-2">
+                  <EditableField
+                    value={toDigits(card.wellId)}
+                    placeholder={t("board.card.well")}
+                    onSave={(val) => {
+                      const digits = toDigits(val);
+                      if (!digits) {
+                        return;
+                      }
+                      onUpdateSample?.({ well_id: digits });
+                    }}
+                    readOnly={!onUpdateSample}
+                  />
+                  <span className="text-sm text-muted-foreground">·</span>
+                  <EditableField
+                    value={card.horizon}
+                    placeholder={t("board.card.horizon")}
+                    onSave={(val) => onUpdateSample?.({ horizon: val || card.horizon })}
+                    readOnly={!onUpdateSample}
+                  />
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
@@ -461,29 +469,21 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                  <CircleDot className="w-3 h-3" /> {t("board.card.well")}
+                  <User className="w-3 h-3" /> {t("panel.assignedTo")}
                 </label>
-                <div className="flex gap-2">
-                  <EditableField
-                    value={toDigits(card.wellId)}
-                    placeholder={t("board.card.well")}
-                    onSave={(val) => {
-                      const digits = toDigits(val);
-                      if (!digits) {
-                        return;
-                      }
-                      onUpdateSample?.({ well_id: digits });
-                    }}
-                    readOnly={!onUpdateSample}
-                  />
-                  <span className="text-sm text-muted-foreground">·</span>
-                  <EditableField
-                    value={card.horizon}
-                    placeholder={t("board.card.horizon")}
-                    onSave={(val) => onUpdateSample?.({ horizon: val || card.horizon })}
-                    readOnly={!onUpdateSample}
-                  />
-                </div>
+                <EditableField
+                  value={displayAssignedTo}
+                  placeholder={t("panel.addAssignee")}
+                  onSave={(val) => {
+                    if (card.analysisType === 'Sample' && onUpdateSample) {
+                      onUpdateSample({ assigned_to: val || UNASSIGNED_VALUE });
+                    }
+                    if (card.analysisType !== 'Sample' && onUpdateAnalysis) {
+                      onUpdateAnalysis({ assigned_to: val || UNASSIGNED_VALUE });
+                    }
+                  }}
+                  readOnly={!onUpdateSample && !onUpdateAnalysis}
+                />
               </div>
             {card.conflictResolutionNote && (
               <div className="space-y-2 col-span-2">
