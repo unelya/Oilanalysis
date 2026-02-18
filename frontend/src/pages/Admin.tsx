@@ -24,7 +24,7 @@ import {
 import { Check, ChevronDown, ChevronsUpDown, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/i18n";
-import { getMethodLabel } from "@/lib/method-labels";
+import { getMethodLabelShort } from "@/lib/method-labels";
 
 const roleIds = ["warehouse_worker", "lab_operator", "action_supervision", "admin"] as const;
 const methodOptions = ["SARA", "IR", "Mass Spectrometry", "Viscosity", "Electrophoresis"];
@@ -716,7 +716,7 @@ const Admin = () => {
                           <div className="flex flex-wrap gap-1">
                             {(user.method_permissions || []).map((m) => (
                               <Badge key={m} variant="outline" className="text-xs">
-                                {getMethodLabel(m, t)}
+                                {getMethodLabelShort(m, t)}
                               </Badge>
                             ))}
                             {(user.method_permissions || []).length === 0 && (
@@ -749,7 +749,7 @@ const Admin = () => {
                                         >
                                           {selected && <Check className="h-3 w-3" />}
                                         </div>
-                                        <span>{getMethodLabel(methodName, t)}</span>
+                                        <span>{getMethodLabelShort(methodName, t)}</span>
                                       </CommandItem>
                                     );
                                   })}

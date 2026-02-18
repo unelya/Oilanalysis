@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/i18n';
-import { getMethodLabel } from '@/lib/method-labels';
+import { getMethodLabelShort } from '@/lib/method-labels';
 
 const STORAGE_KEY = 'labsync-kanban-cards';
 const DEFAULT_ANALYSIS_TYPES = ['SARA', 'IR', 'Mass Spectrometry', 'Viscosity', 'Electrophoresis'];
@@ -3470,7 +3470,7 @@ export function KanbanBoard({
                             checked={methodFilter.includes(m)}
                             className="mr-2 pointer-events-none"
                           />
-                          <span>{getMethodLabel(m, t)}</span>
+                          <span>{getMethodLabelShort(m, t)}</span>
                         </CommandItem>
                       ))}
                   </CommandGroup>
@@ -3483,7 +3483,7 @@ export function KanbanBoard({
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
                   <Filter className="w-4 h-4" />
-                  {t("board.filterVisibility")}
+                  {t("board.actionsShort.filterVisibility")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="p-0 w-56" align="end">
@@ -3492,7 +3492,7 @@ export function KanbanBoard({
                     {DEFAULT_ANALYSIS_TYPES.map((m) => (
                       <CommandItem key={m} onSelect={() => {}}>
                         <Checkbox checked className="mr-2 pointer-events-none" />
-                        <span className="text-muted-foreground">{getMethodLabel(m, t)}</span>
+                        <span className="text-muted-foreground">{getMethodLabelShort(m, t)}</span>
                       </CommandItem>
                     ))}
                     {[...new Set([...plannedAnalyses.map((pa) => pa.analysisType), ...filterMethodWhitelist])]
@@ -3525,7 +3525,7 @@ export function KanbanBoard({
                             checked={filterMethodWhitelist.includes(m)}
                             className="mr-2 pointer-events-none"
                           />
-                          <span>{getMethodLabel(m, t)}</span>
+                          <span>{getMethodLabelShort(m, t)}</span>
                         </CommandItem>
                       ))}
                   </CommandGroup>
@@ -3551,7 +3551,7 @@ export function KanbanBoard({
                 ) : (
                   <ArrowUp className="w-4 h-4" />
                 )}
-                {t("board.sort")} {sortMode !== 'none' ? '(1)' : ''}
+                {t("board.actionsShort.sort")} {sortMode !== 'none' ? '(1)' : ''}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="p-3 w-80" align="end">
@@ -3634,7 +3634,7 @@ export function KanbanBoard({
                       setSortOpen(false);
                     }}
                   >
-                    {t("board.apply")}
+                    {t("board.actionsShort.applyFilters")}
                   </Button>
                 </div>
               </div>

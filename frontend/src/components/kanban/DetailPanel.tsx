@@ -13,7 +13,7 @@ import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/i18n';
-import { getMethodLabel } from '@/lib/method-labels';
+import { getMethodLabel, getMethodLabelShort } from '@/lib/method-labels';
 
 interface DetailPanelProps {
   card: KanbanCard | null;
@@ -90,31 +90,31 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
     const normalized = card.analysisStatus?.toLowerCase() ?? 'planned';
     switch (normalized) {
       case 'in_progress':
-        return { status: 'progress', label: t("board.columns.in_progress") };
+        return { status: 'progress', label: t("board.columnsShort.in_progress") };
       case 'review':
-        return { status: 'review', label: t("board.columns.needs_attention") };
+        return { status: 'review', label: t("board.columnsShort.needs_attention") };
       case 'completed':
-        return { status: 'done', label: t("board.columns.completed") };
+        return { status: 'done', label: t("board.columnsShort.completed") };
       case 'failed':
         return { status: 'review', label: t("board.card.failed") };
       default:
-        return { status: 'new', label: t("board.columns.planned") };
+        return { status: 'new', label: t("board.columnsShort.planned") };
     }
   })();
   const translateColumnLabel = (label?: string | null) => {
     if (!label) return '';
     const normalized = label.trim().toLowerCase();
     const keyByTitle: Record<string, string> = {
-      planned: "board.columns.planned",
-      "awaiting arrival": "board.columns.awaiting_arrival",
-      stored: "board.columns.stored",
-      issues: "board.columns.issues",
-      "in progress": "board.columns.in_progress",
-      "needs attention": "board.columns.needs_attention",
-      completed: "board.columns.completed",
-      "uploaded batch": "board.columns.uploaded_batch",
-      conflicts: "board.columns.conflicts",
-      deleted: "board.columns.deleted",
+      planned: "board.columnsShort.planned",
+      "awaiting arrival": "board.columnsShort.awaiting_arrival",
+      stored: "board.columnsShort.stored",
+      issues: "board.columnsShort.issues",
+      "in progress": "board.columnsShort.in_progress",
+      "needs attention": "board.columnsShort.needs_attention",
+      completed: "board.columnsShort.completed",
+      "uploaded batch": "board.columnsShort.uploaded_batch",
+      conflicts: "board.columnsShort.conflicts",
+      deleted: "board.columnsShort.deleted",
       resolved: "board.card.resolved",
     };
     const key = keyByTitle[normalized];
@@ -123,20 +123,20 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
   const analysisBadgeDisplay = card.analysisLabel
     ? { ...analysisBadge, label: translateColumnLabel(card.analysisLabel) }
     : role === 'lab_operator'
-    ? { status: card.status, label: translateColumnLabel(card.statusLabel) || t("board.columns.planned") }
+    ? { status: card.status, label: translateColumnLabel(card.statusLabel) || t("board.columnsShort.planned") }
     : analysisBadge;
   const conflictStatusMap: Record<KanbanCard['status'], { status: KanbanCard['status']; label: string }> = {
-    new: { status: 'new', label: t("board.columns.uploaded_batch") },
-    progress: { status: 'progress', label: t("board.columns.conflicts") },
-    review: { status: 'progress', label: t("board.columns.conflicts") },
-    done: { status: 'done', label: t("board.columns.stored") },
+    new: { status: 'new', label: t("board.columnsShort.uploaded_batch") },
+    progress: { status: 'progress', label: t("board.columnsShort.conflicts") },
+    review: { status: 'progress', label: t("board.columnsShort.conflicts") },
+    done: { status: 'done', label: t("board.columnsShort.stored") },
   };
   const conflictStatus = conflictStatusMap[card.status];
   const warehouseSampleLabelMap: Record<string, string> = {
-    new: t("board.columns.planned"),
-    progress: t("board.columns.awaiting_arrival"),
-    review: t("board.columns.stored"),
-    done: t("board.columns.issues"),
+    new: t("board.columnsShort.planned"),
+    progress: t("board.columnsShort.awaiting_arrival"),
+    review: t("board.columnsShort.stored"),
+    done: t("board.columnsShort.issues"),
   };
   const toDigits = (value: string) => value.replace(/\D/g, '');
   const storageFormatRegex = /^Fridge\s+[A-Za-z0-9]+\s*·\s*Bin\s+[A-Za-z0-9]+\s*·\s*Place\s+[A-Za-z0-9]+$/;
@@ -619,7 +619,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
                     <SelectContent>
                       {availableMethods.map((m) => (
                         <SelectItem key={m} value={m}>
-                          {getMethodLabel(m, t)}
+                          {getMethodLabelShort(m, t)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -724,7 +724,7 @@ export function DetailPanel({ card: cardProp, isOpen, onClose, role = 'lab_opera
             )}
             {onResolveConflict && (
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-foreground">{t("panel.resolveConflict")}</p>
+                <p className="text-sm font-semibold text-foreground">{t("board.actionsShort.resolveConflict")}</p>
                 <Input placeholder={t("panel.resolutionNoteOptional")} value={resolution} onChange={(e) => setResolution(e.target.value)} />
                 <Button size="sm" onClick={() => onResolveConflict(resolution || undefined)}>
                   {t("panel.markResolved")}

@@ -30,10 +30,10 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
   const { theme, toggleTheme } = useTheme();
   const { t, language, setLanguage } = useI18n();
   const allRoleOptions: { id: Role; label: string }[] = [
-    { id: 'warehouse_worker', label: t("common.warehouse") },
-    { id: 'lab_operator', label: t("common.labOperator") },
-    { id: 'action_supervision', label: t("common.actionSupervision") },
-    { id: 'admin', label: t("common.admin") },
+    { id: 'warehouse_worker', label: t("commonShort.warehouse") },
+    { id: 'lab_operator', label: t("commonShort.labOperator") },
+    { id: 'action_supervision', label: t("commonShort.actionSupervision") },
+    { id: 'admin', label: t("commonShort.admin") },
   ];
   const selectableRoles: Role[] =
     user?.role === 'admin'
@@ -77,7 +77,7 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
       
       <div className="flex items-center gap-4">
         <Select value={selectedRole} onValueChange={(val) => onRoleChange?.(val as Role)}>
-          <SelectTrigger className="w-64 h-9 text-sm bg-muted border-border/50">
+          <SelectTrigger className="w-[150px] sm:w-[165px] h-9 text-sm bg-muted border-border/50">
             <SelectValue placeholder={t("topBar.rolePlaceholder")} />
           </SelectTrigger>
           <SelectContent>
@@ -149,7 +149,7 @@ export function TopBar({ role, onRoleChange, searchTerm, onSearch, allowedRoles,
                     className="text-xs text-primary hover:underline"
                     onClick={onMarkAllRead}
                   >
-                    {t("topBar.markAllRead")}
+                    {t("topBar.markAllReadShort")}
                   </button>
                 )}
               </div>

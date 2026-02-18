@@ -4,7 +4,7 @@ import { StatusBadge } from './StatusBadge';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useI18n } from '@/i18n';
-import { getMethodLabel } from '@/lib/method-labels';
+import { getMethodLabelShort } from '@/lib/method-labels';
 
 interface KanbanCardProps {
   card: CardType;
@@ -34,29 +34,29 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
   const translateColumnLabel = (label?: string | null) => {
     if (!label) return '';
     const keyByTitle: Record<string, string> = {
-      Planned: "board.columns.planned",
-      "Awaiting arrival": "board.columns.awaiting_arrival",
-      Stored: "board.columns.stored",
-      Issues: "board.columns.issues",
-      "In progress": "board.columns.in_progress",
-      "Needs attention": "board.columns.needs_attention",
-      Completed: "board.columns.completed",
-      "Uploaded batch": "board.columns.uploaded_batch",
-      Conflicts: "board.columns.conflicts",
-      Deleted: "board.columns.deleted",
+      Planned: "board.columnsShort.planned",
+      "Awaiting arrival": "board.columnsShort.awaiting_arrival",
+      Stored: "board.columnsShort.stored",
+      Issues: "board.columnsShort.issues",
+      "In progress": "board.columnsShort.in_progress",
+      "Needs attention": "board.columnsShort.needs_attention",
+      Completed: "board.columnsShort.completed",
+      "Uploaded batch": "board.columnsShort.uploaded_batch",
+      Conflicts: "board.columnsShort.conflicts",
+      Deleted: "board.columnsShort.deleted",
     };
     const key = keyByTitle[label];
     return key ? t(key) : label;
   };
   const assigneeLabel = card.assignedTo?.trim().toLowerCase() === 'unassigned'
-    ? t("board.card.unassigned")
+    ? t("board.cardShort.unassigned")
     : card.assignedTo;
   const translateStorageLocation = (value?: string | null) => {
     if (!value) return '';
     return value
-      .replace(/\bFridge\b/g, t("board.card.fridge"))
-      .replace(/\bBin\b/g, t("board.card.bin"))
-      .replace(/\bPlace\b/g, t("board.card.place"));
+      .replace(/\bFridge\b/g, t("board.cardShort.fridge"))
+      .replace(/\bBin\b/g, t("board.cardShort.bin"))
+      .replace(/\bPlace\b/g, t("board.cardShort.place"));
   };
   const storageLocationLabel = translateStorageLocation(card.storageLocation);
   const displayAnalysisType = (() => {
@@ -89,22 +89,22 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
     const normalized = card.analysisStatus?.toLowerCase() ?? 'planned';
     switch (normalized) {
       case 'in_progress':
-        return { status: 'progress', label: t("board.columns.in_progress") };
+        return { status: 'progress', label: t("board.columnsShort.in_progress") };
       case 'review':
-        return { status: 'review', label: t("board.columns.needs_attention") };
+        return { status: 'review', label: t("board.columnsShort.needs_attention") };
       case 'completed':
-        return { status: 'done', label: t("board.columns.completed") };
+        return { status: 'done', label: t("board.columnsShort.completed") };
       case 'failed':
         return { status: 'review', label: t("board.card.failed") };
       default:
-        return { status: 'new', label: t("board.columns.planned") };
+        return { status: 'new', label: t("board.columnsShort.planned") };
     }
   })();
   const warehouseSampleLabelMap: Record<string, string> = {
-    new: t("board.columns.planned"),
-    progress: t("board.columns.awaiting_arrival"),
-    review: t("board.columns.stored"),
-    done: t("board.columns.issues"),
+    new: t("board.columnsShort.planned"),
+    progress: t("board.columnsShort.awaiting_arrival"),
+    review: t("board.columnsShort.stored"),
+    done: t("board.columnsShort.issues"),
   };
   const toDigits = (value: string) => value.replace(/\D/g, '');
   const wellValue = toDigits(card.wellId);
@@ -237,9 +237,9 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
           <span>{t("board.card.sampling")} {card.samplingDate}</span>
           <span className="flex items-center gap-1 text-foreground font-semibold">
             <CircleDot className="w-3 h-3 text-primary" />
-            {t("board.card.well")} {wellValue}
+            {t("board.cardShort.well")} {wellValue}
           </span>
-          <span className="text-muted-foreground">{t("board.card.horizon")} {card.horizon}</span>
+          <span className="text-muted-foreground">{t("board.cardShort.horizon")} {card.horizon}</span>
         </div>
         {card.deletedReason && card.statusLabel?.toLowerCase().includes('deleted') && (
           <div className="text-[11px] text-destructive leading-snug">
@@ -276,7 +276,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
                   disabled={isDisabled}
                   className="h-3.5 w-3.5 rounded border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white data-[state=checked]:disabled:bg-primary data-[state=checked]:disabled:border-primary data-[state=checked]:disabled:text-white disabled:opacity-100 disabled:cursor-not-allowed"
                 />
-                <span className="truncate flex-1">{getMethodLabel(m.name, t)}</span>
+                <span className="truncate flex-1">{getMethodLabelShort(m.name, t)}</span>
                 {m.status === 'completed' && <span className="text-[10px] text-destructive font-semibold">{t("board.card.done")}</span>}
               </label>
                 );
@@ -322,7 +322,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
                         adminActions.onResolve?.();
                       }}
                     >
-                      {t("board.card.storedAsNotResolved")}
+                      {t("board.actionsShort.storedAsNotResolved")}
                     </button>
                   )}
                   {showStatusActions && adminActions.onReturn && (
@@ -333,7 +333,7 @@ export function KanbanCard({ card, onClick, onToggleMethod, canToggleMethod, rea
                         adminActions.onReturn?.();
                       }}
                     >
-                      {t("board.card.returnForAnalysis")}
+                      {t("board.actionsShort.returnForAnalysis")}
                     </button>
                   )}
                 </>
