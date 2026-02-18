@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import re
 import secrets
 import smtplib
@@ -323,6 +323,13 @@ class Sample(BaseModel):
   assigned_to: str | None = None
 
 
+def parse_iso_date_or_400(value: str, field_name: str) -> date:
+  try:
+    return date.fromisoformat((value or "").strip())
+  except Exception:
+    raise HTTPException(status_code=400, detail=f"{field_name} must be in YYYY-MM-DD format")
+
+
 class SamplePurgeRequest(BaseModel):
   sample_ids: list[str]
 
@@ -359,6 +366,10 @@ async def create_sample(sample: Sample, db: Session = Depends(get_db)):
   existing = db.get(SampleModel, sample.sample_id)
   if existing:
     raise HTTPException(status_code=400, detail="Sample exists")
+  sampling_date_value = parse_iso_date_or_400(sample.sampling_date, "sampling_date")
+  arrival_date_value = parse_iso_date_or_400(sample.arrival_date, "arrival_date")
+  if arrival_date_value < sampling_date_value:
+    raise HTTPException(status_code=400, detail="arrival_date cannot be before sampling_date")
   row = SampleModel(
     sample_id=sample.sample_id,
     well_id=sample.well_id,
@@ -380,6 +391,12 @@ async def update_sample(sample_id: str, payload: dict, request: Request, db: Ses
   row = db.get(SampleModel, sample_id)
   if not row:
     raise HTTPException(status_code=404, detail="Sample not found")
+  next_sampling_date = payload.get("sampling_date", row.sampling_date)
+  next_arrival_date = payload.get("arrival_date", row.arrival_date)
+  sampling_date_value = parse_iso_date_or_400(next_sampling_date, "sampling_date")
+  arrival_date_value = parse_iso_date_or_400(next_arrival_date, "arrival_date")
+  if arrival_date_value < sampling_date_value:
+    raise HTTPException(status_code=400, detail="arrival_date cannot be before sampling_date")
   old_values = {
     "well_id": row.well_id,
     "horizon": row.horizon,

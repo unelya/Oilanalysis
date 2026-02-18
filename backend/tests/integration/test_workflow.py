@@ -148,6 +148,21 @@ def test_sample_to_analysis_workflow(client):
     assert any(item.get("action") == "updated" and "storage_location:Shelf A->Shelf A2" in (item.get("details") or "") for item in sample_events)
 
 
+def test_sample_arrival_date_cannot_be_before_sampling_date(client):
+    invalid_payload = {
+        "sample_id": "S-100-INVALID-DATE",
+        "well_id": "W-10",
+        "horizon": "H1",
+        "sampling_date": "2024-01-10",
+        "arrival_date": "2024-01-09",
+        "status": "new",
+        "storage_location": "Shelf A",
+    }
+    res = client.post("/samples", json=invalid_payload)
+    assert res.status_code == 400
+    assert "arrival_date cannot be before sampling_date" in (res.json().get("detail") or "")
+
+
 def test_action_and_conflict_workflow(client):
     batch_payload = {"title": "Batch-1", "date": "2024-02-01", "status": "new"}
     res = client.post("/action-batches", json=batch_payload)

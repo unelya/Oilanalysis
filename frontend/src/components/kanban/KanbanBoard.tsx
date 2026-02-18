@@ -3284,6 +3284,23 @@ export function KanbanBoard({
       }
     }
     const prevCard = cards.find((c) => c.sampleId === sampleId);
+    const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+    const nextSamplingDate = nextUpdates.sampling_date ?? prevCard?.samplingDate;
+    const nextArrivalDate = nextUpdates.arrival_date ?? prevCard?.arrivalDate;
+    if (
+      nextSamplingDate &&
+      nextArrivalDate &&
+      isoDatePattern.test(nextSamplingDate) &&
+      isoDatePattern.test(nextArrivalDate) &&
+      nextArrivalDate < nextSamplingDate
+    ) {
+      toast({
+        title: 'Invalid arrival date',
+        description: 'Arrival date cannot be before sampling date',
+        variant: 'destructive',
+      });
+      return;
+    }
     const shouldStore =
       role === 'warehouse_worker' && nextUpdates.storage_location && nextUpdates.storage_location.trim().length > 0;
     const targetStatus = shouldStore ? 'review' : undefined;

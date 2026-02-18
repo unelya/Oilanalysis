@@ -42,6 +42,7 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
   const [arrivalDateOpen, setArrivalDateOpen] = useState(false);
   const isFutureSamplingDate = form.samplingDate > today;
   const isFutureArrivalDate = form.arrivalDate > today;
+  const isArrivalBeforeSampling = Boolean(form.arrivalDate && form.samplingDate && form.arrivalDate < form.samplingDate);
 
   useEffect(() => {
     if (!dialogOpen) {
@@ -78,6 +79,10 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
     }
     if (isFutureArrivalDate) {
       setError(t('board.newSampleDialog.errors.futureArrivalDate'));
+      return;
+    }
+    if (isArrivalBeforeSampling) {
+      setError(t('board.newSampleDialog.errors.arrivalBeforeSampling'));
       return;
     }
     const normalized = form.sampleId.trim().toLowerCase();
@@ -229,14 +234,18 @@ export function NewCardDialog({ onCreate, existingSampleIds = [], open, onOpenCh
           {isFutureArrivalDate && (
             <p className="text-sm text-destructive">{t("board.newSampleDialog.errors.futureArrivalDate")}</p>
           )}
+          {isArrivalBeforeSampling && (
+            <p className="text-sm text-destructive">{t("board.newSampleDialog.errors.arrivalBeforeSampling")}</p>
+          )}
           {error &&
             error !== t("board.newSampleDialog.errors.futureDate") &&
-            error !== t("board.newSampleDialog.errors.futureArrivalDate") && (
+            error !== t("board.newSampleDialog.errors.futureArrivalDate") &&
+            error !== t("board.newSampleDialog.errors.arrivalBeforeSampling") && (
               <p className="text-sm text-destructive">{error}</p>
             )}
           <DialogFooter className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t("board.cancel")}</Button>
-            <Button type="submit" disabled={isFutureSamplingDate || isFutureArrivalDate}>{t("board.newSampleDialog.create")}</Button>
+            <Button type="submit" disabled={isFutureSamplingDate || isFutureArrivalDate || isArrivalBeforeSampling}>{t("board.newSampleDialog.create")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
